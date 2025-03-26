@@ -1,6 +1,7 @@
 package com.phumlanidev.infinity_tech_auth_service.model;
 
-import com.phumlanidev.techhivestore.enums.RoleMapping;
+
+import com.phumlanidev.infinity_tech_auth_service.enums.RoleMapping;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

@@ -1,6 +1,7 @@
 package com.phumlanidev.infinity_tech_auth_service.exception.address;
 
-import com.phumlanidev.techhivestore.exception.BaseException;
+
+import com.phumlanidev.infinity_tech_auth_service.exception.BaseException;
 import org.springframework.http.HttpStatus;
 
 

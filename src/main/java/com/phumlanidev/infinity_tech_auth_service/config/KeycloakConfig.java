@@ -1,7 +1,6 @@
 package com.phumlanidev.infinity_tech_auth_service.config;
 
 
-import lombok.RequiredArgsConstructor;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
@@ -15,23 +14,22 @@ import org.springframework.context.annotation.Configuration;
  * Comment: this is the placeholder for documentation.
  */
 @Configuration
-@RequiredArgsConstructor
 public class KeycloakConfig {
 
   private static final Logger logger = LoggerFactory.getLogger(KeycloakConfig.class);
 
   @Value("${keycloak.auth-server-url}")
-  private final String keycloakServerUrl;
+  private String keycloakServerUrl;
   @Value("${keycloak.realm}")
-  private final String keycloakRealm;
+  private String keycloakRealm;
   @Value("${keycloak.resource}")
-  private final String keycloakClientId;
+  private String keycloakClientId;
   @Value("${keycloak.credentials.secret}")
-  private final String keycloakClientSecret;
+  private String keycloakClientSecret;
   @Value("${keycloak.admin.username}")
-  private final String keycloakClientAdminUsername;
+  private String keycloakClientAdminUsername;
   @Value("${keycloak.admin.password}")
-  private final String keycloakClientAdminPassword;
+  private String keycloakClientAdminPassword;
 
   /**
    * Keycloak instance for admin actions.
