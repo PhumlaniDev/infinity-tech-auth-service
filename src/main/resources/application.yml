@@ -1,0 +1,50 @@
+server:
+  port: 9000
+
+spring:
+  application:
+    name: Auth Microservice
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/authdb
+    username: ENC(1zCSDe7LfMxdRCAAPYjhVeoTfiu6Aw5hDwkLJuE9wd+1/9ga9c2T74nLlphUqEjW)
+    password: ENC(Qja1d3V4JZqQbGTGo1CPXcbKLkqbomeNpfO+5ZXSf6NKWB3FSS/Bgk5PFaVUYo1Y)
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 20000
+      pool-name: HikariCP
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        default_schema: public
+        format_sql: true
+        show_sql: true
+        jdbc:
+          batch_size: 50
+    open-in-view: false
+  sql:
+    init:
+      mode: always
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080
+          jwk-set-uri: ${spring.security.oauth2.resourceserver.jwt.issuer-uri}/protocol/openid-connect/certs
+keycloak:
+  auth-server-url: ${security.oauth2.resourceserver.jwt.issuer-uri}
+  realm: mac-apps
+  resource: infinity-tech-api
+  principle-attribute: preferred_username
+  credentials:
+    secret: ENC(kcYV8v/y4d4F+R4ZI5H7Ak74BSfx1lRQ1JG5BpLhcdGLN/XP2EfdxebTVZ2mJD6Oh0LNCqVP87bwzOUmUNZpKdBUthYKMc0ZO3Zspv1OFMg=)
+  admin:
+    username: testuser
+    password: TGsj4vb5knipd1
