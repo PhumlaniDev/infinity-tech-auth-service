@@ -22,11 +22,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v3
         with:
           distribution: "temurin"
-          java-version: "17"
+          java-version: "21"
           cache: "maven"
 
       - name: Pre-fetch Maven dependencies
@@ -67,11 +67,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v3
         with:
           distribution: "temurin"
-          java-version: "17"
+          java-version: "21"
           cache: "maven"
 
       - name: Copy Maven settings
@@ -112,11 +112,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v3
         with:
           distribution: "temurin"
-          java-version: "17"
+          java-version: "21"
           cache: "maven"
 
       - name: Run Unit Tests with H2
