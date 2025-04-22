@@ -41,10 +41,10 @@ public class SecurityConfig {
     http.csrf(AbstractHttpConfigurer::disable).authorizeHttpRequests(
             authorize -> authorize
                 .requestMatchers("/api/v1/auth/**").permitAll()
+                .requestMatchers("/api/v1/products/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/api/v1/admin/**")
-                .hasRole(ADMIN).requestMatchers("/api/v1/user/**")
-                .hasRole(USER).anyRequest()
+                .hasRole(ADMIN).anyRequest()
                 .authenticated()).oauth2ResourceServer(
             oauth2 ->
                 oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter)))
