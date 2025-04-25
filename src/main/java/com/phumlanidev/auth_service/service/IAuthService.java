@@ -5,7 +5,6 @@ import com.phumlanidev.auth_service.dto.JwtResponseDto;
 import com.phumlanidev.auth_service.dto.LoginDto;
 import com.phumlanidev.auth_service.dto.TokenLogoutRequest;
 import com.phumlanidev.auth_service.dto.UserDto;
-import jakarta.validation.Valid;
 
 /**
  * Comment: this is the placeholder for documentation.
@@ -22,5 +21,13 @@ public interface IAuthService {
    */
   JwtResponseDto login(LoginDto loginDto);
 
+  /**
+   * Comment: this is the placeholder for documentation.
+   */
   void logout(TokenLogoutRequest refreshToken);
+
+  /**
+   * Comment: this is the placeholder for documentation.
+   */
+  void sendResetPasswordEmail(String email);
 }

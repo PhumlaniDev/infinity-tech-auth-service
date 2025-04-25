@@ -6,8 +6,10 @@ import com.phumlanidev.auth_service.dto.LoginDto;
 import com.phumlanidev.auth_service.dto.TokenLogoutRequest;
 import com.phumlanidev.auth_service.dto.UserDto;
 import com.phumlanidev.auth_service.enums.RoleMapping;
+import com.phumlanidev.auth_service.exception.UserNotFoundException;
 import com.phumlanidev.auth_service.exception.auth.AuthenticationFailedException;
 import com.phumlanidev.auth_service.exception.auth.KeycloakCommunicationException;
+import com.phumlanidev.auth_service.exception.auth.UserNotVerified;
 import com.phumlanidev.auth_service.mapper.AddressMapper;
 import com.phumlanidev.auth_service.mapper.UserMapper;
 import com.phumlanidev.auth_service.model.Address;
@@ -19,6 +21,8 @@ import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.core.Response;
 import java.net.URI;
 import java.util.Collections;
+import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.OAuth2Constants;
@@ -56,7 +60,6 @@ public class AuthServiceImpl implements IAuthService {
   private final UserRepository userRepository;
   private final AddressRepository addressRepository;
   private final PasswordEncoder passwordEncoder;
-  private final Keycloak keycloak;
   private final UserMapper userMapper;
   private final AddressMapper addressMapper;
 
@@ -234,6 +237,42 @@ public class AuthServiceImpl implements IAuthService {
     } catch (Exception e) {
         log.error("Exception occurred during logout: {}", e.getMessage(), e);
         throw new RuntimeException("Logout failed due to an exception", e);
+    }
+  }
+
+  @Override
+  public void sendResetPasswordEmail(String email) {
+
+    try (Keycloak adminClient = KeycloakBuilder.builder()
+            .serverUrl(keycloakServerUrl)
+            .realm("master")
+            .clientId("admin-cli")
+            .username(keycloakAdminUsername)
+            .password(keycloakAdminPassword)
+            .grantType(OAuth2Constants.PASSWORD)
+            .build()) {
+
+      List<UserRepresentation> users = adminClient.realm(keycloakRealm)
+              .users()
+              .searchByEmail(email, true); // or paginate properly
+
+      UserRepresentation user = users.stream()
+              .filter(u -> email.equalsIgnoreCase(u.getEmail()))
+              .findFirst()
+              .orElseThrow(() -> new UserNotFoundException("User not found"));
+
+      if (!Boolean.TRUE.equals(user.isEmailVerified())) {
+        log.warn("User with email {} is not verified", email);
+        throw new UserNotVerified("User not verified");
+      }
+
+      adminClient.realm(keycloakRealm)
+              .users()
+              .get(user.getId())
+                .executeActionsEmail(Collections.singletonList("UPDATE_PASSWORD"));
+    } catch (Exception e) {
+      log.error("Exception occurred while send password reset link to user {}: {}", email,
+              e.getMessage(), e);
     }
   }
 }

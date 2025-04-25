@@ -64,5 +64,17 @@ public class AuthController {
             .status(HttpStatus.OK)
             .body(new ResponseDto(Constant.STATUS_CODE_OK,
                     "You have successfully logged out."));
+  }
+
+  /**
+   * Comment: this is the placeholder for documentation.
+   */
+  @PostMapping("/reset-password")
+    public ResponseEntity<ResponseDto> resetPassword(@RequestBody String email) {
+        authServiceImpl.sendResetPasswordEmail(email);
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(new ResponseDto(Constant.STATUS_CODE_OK,
+                        "Reset password email sent successfully."));
     }
 }
