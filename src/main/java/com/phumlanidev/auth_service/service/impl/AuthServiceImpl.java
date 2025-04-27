@@ -98,6 +98,8 @@ public class AuthServiceImpl implements IAuthService {
 
     registerKeycloakUser(userDto, rawPassword);
 
+    sendEmailVerification(userDto.getEmail());
+
   }
 
   private void registerKeycloakUser(UserDto userDto, String rawPassword) {
@@ -261,15 +263,44 @@ public class AuthServiceImpl implements IAuthService {
               .findFirst()
               .orElseThrow(() -> new UserNotFoundException("User not found"));
 
-      if (!Boolean.TRUE.equals(user.isEmailVerified())) {
-        log.warn("User with email {} is not verified", email);
-        throw new UserNotVerified("User not verified");
-      }
-
       adminClient.realm(keycloakRealm)
               .users()
               .get(user.getId())
                 .executeActionsEmail(Collections.singletonList("UPDATE_PASSWORD"));
+    } catch (Exception e) {
+      log.error("Exception occurred while send password reset link to user {}: {}", email,
+              e.getMessage(), e);
+    }
+  }
+
+  private void sendEmailVerification(String email) {
+    try (Keycloak adminClient = KeycloakBuilder.builder()
+            .serverUrl(keycloakServerUrl)
+            .realm("master")
+            .clientId("admin-cli")
+            .username(keycloakAdminUsername)
+            .password(keycloakAdminPassword)
+            .grantType(OAuth2Constants.PASSWORD)
+            .build()) {
+
+      List<UserRepresentation> users = adminClient.realm(keycloakRealm)
+              .users()
+              .searchByEmail(email, true); // or paginate properly
+
+      UserRepresentation user = users.stream()
+              .filter(u -> email.equalsIgnoreCase(u.getEmail()))
+              .findFirst()
+              .orElseThrow(() -> new UserNotFoundException("User not found"));
+
+      if (!Boolean.TRUE.equals(user.isEmailVerified())) {
+        adminClient
+                .realm(keycloakRealm)
+                .users()
+                .get(user.getId())
+                .sendVerifyEmail();
+        log.warn("User with email {} is not verified", email);
+        throw new UserNotVerified("User not verified");
+      }
     } catch (Exception e) {
       log.error("Exception occurred while send password reset link to user {}: {}", email,
               e.getMessage(), e);
