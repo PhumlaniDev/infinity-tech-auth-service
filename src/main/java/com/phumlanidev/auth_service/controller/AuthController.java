@@ -28,7 +28,6 @@ public class AuthController {
   /**
    * Comment: this is the placeholder for documentation.
    */
-
   private final AuthServiceImpl authServiceImpl;
 
   /**

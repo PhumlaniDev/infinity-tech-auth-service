@@ -33,6 +33,7 @@ import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.admin.client.resource.UserResource;
 import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.representations.AccessTokenResponse;
+import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
@@ -112,7 +113,6 @@ public class AuthServiceImpl implements IAuthService {
               .password(keycloakAdminPassword)
           .grantType(OAuth2Constants.PASSWORD)
           .build()) {
-//      RealmResource realmResource = keycloak.realm(keycloakRealm);
         RealmResource realmResource = adminClient.realm(keycloakRealm);
         UsersResource usersResource = realmResource.users();
         UserRepresentation keycloakUser = createUserRepresentation(userDto, rawPassword);
@@ -179,10 +179,20 @@ public class AuthServiceImpl implements IAuthService {
 
   private void assignClientRole(UserResource userResource, RealmResource realmResource,
                                 String clientRoleName) {
-    String clientId = keycloakClientId; // Replace with your Keycloak client ID
-    ClientResource clientResource = realmResource.clients().get(clientId);
+
+    List<ClientRepresentation> clients = realmResource.clients().findByClientId(keycloakClientId);
+    if (clients.isEmpty()) {
+      log.error("Client with ID {} not found in Keycloak", keycloakClientId);
+      throw new KeycloakCommunicationException("Client not found");
+    }
+
+    String clientUuid = clients.get(0).getId();
+
+    ClientResource clientResource = realmResource.clients().get(clientUuid);
+
     RoleRepresentation clientRole = clientResource.roles().get(clientRoleName).toRepresentation();
-    userResource.roles().clientLevel(clientId).add(Collections.singletonList(clientRole));
+
+    userResource.roles().clientLevel(clientUuid).add(Collections.singletonList(clientRole));
   }
 
   /**

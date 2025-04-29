@@ -1,12 +1,9 @@
 package com.phumlanidev.auth_service.config;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.lang.NonNull;
@@ -23,6 +20,7 @@ import org.springframework.stereotype.Component;
 /**
  * Comment: this is the placeholder for documentation.
  */
+@Slf4j
 @Component
 public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
@@ -36,33 +34,51 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
 
   @Override
   public AbstractAuthenticationToken convert(@NonNull Jwt jwt) {
-    Collection<GrantedAuthority> authorities = Stream.concat(
-            Optional.of(jwtGrantedAuthoritiesConverter.convert(jwt))
-                .orElse(Collections.emptyList()).stream(), extractResourceRoles(jwt).stream())
-        .collect(Collectors.toSet());
+
+    Collection<GrantedAuthority> authorities = extractAllRoles(jwt);
 
     return new JwtAuthenticationToken(jwt, authorities, getPrincipleClaimName(jwt));
   }
 
   private String getPrincipleClaimName(Jwt jwt) {
-    String claimName = JwtClaimNames.SUB;
-    if (principleAttribute != null) {
-      claimName = principleAttribute;
-    }
-    return jwt.getClaim(claimName);
+    return Optional.ofNullable(principleAttribute)
+            .map(jwt::getClaim)
+            .orElse(jwt.getClaim(JwtClaimNames.SUB)).toString();
   }
 
-  private Collection<? extends GrantedAuthority> extractResourceRoles(Jwt jwt) {
-    Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
-    Map<String, Object> resource;
-    Collection<String> resourceRoles;
+  private Collection<GrantedAuthority> extractAllRoles(Jwt jwt) {
+    Set<String> roles = new HashSet<>();
 
-    if (resourceAccess == null ||
-        (resource = (Map<String, Object>) resourceAccess.get(resourceId)) == null ||
-        (resourceRoles = (Collection<String>) resource.get("roles")) == null) {
-      return Set.of();
+
+
+    Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
+    if (resourceAccess != null) {
+      Map<String, Object> client = (Map<String, Object>) resourceAccess.get(resourceId);
+      if (client != null) {
+        Collection<String> clientRoles = (Collection<String>) client.get("roles");
+        if (clientRoles != null) {
+          roles.addAll(clientRoles);
+        }
+      }
     }
-    return resourceRoles.stream().map(role -> new SimpleGrantedAuthority("ROLE_" + role))
-        .collect(Collectors.toSet());
+
+    Map<String, Object> realmAccess = jwt.getClaim("realm_access");
+    if (realmAccess != null) {
+      Collection<String> realmRoles = (Collection<String>) realmAccess.get("roles");
+      if (realmRoles != null) {
+        roles.addAll(realmRoles);
+      }
+    }
+
+    Collection<String> topRoles = jwt.getClaim("roles");
+    if (topRoles != null) {
+      roles.addAll(topRoles);
+    }
+
+    log.info("Extracted roles: {}", roles);
+
+    return roles.stream()
+            .map(role -> new SimpleGrantedAuthority("ROLE_" + role)) // Add "ROLE_" prefix
+            .collect(Collectors.toSet());
   }
 }

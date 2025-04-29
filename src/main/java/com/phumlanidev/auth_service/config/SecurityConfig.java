@@ -1,5 +1,6 @@
 package com.phumlanidev.auth_service.config;
 
+import com.phumlanidev.auth_service.enums.RoleMapping;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,8 +22,8 @@ import org.springframework.security.web.SecurityFilterChain;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-  public static final String ADMIN = "admin";
-  public static final String USER = "user";
+  public static final String ADMIN = RoleMapping.ADMIN.getRealmRole();
+  public static final String USER = RoleMapping.USER.getRealmRole();
   private final JwtAuthConverter jwtAuthConverter;
 
   /**
@@ -43,9 +44,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/auth/**").permitAll()
                 .requestMatchers("/api/v1/products/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
-                .requestMatchers("/api/v1/admin/**")
-                .hasRole(ADMIN).anyRequest()
-                .authenticated()).oauth2ResourceServer(
+                    .requestMatchers("/api/v1/profile/**").permitAll()
+                .requestMatchers("/api/v1/admin/**").hasRole(ADMIN).anyRequest().authenticated()
+            ).oauth2ResourceServer(
             oauth2 ->
                 oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter)))
         .sessionManagement(
