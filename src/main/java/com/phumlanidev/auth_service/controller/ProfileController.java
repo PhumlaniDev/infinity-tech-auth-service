@@ -8,6 +8,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -34,5 +37,18 @@ public class ProfileController {
         log.info("✅ Roles: {}", token.getAuthorities());
         UserProfileDto profile = profileService.getCurrentUserProfile(token);
         return ResponseEntity.ok(profile);
+    }
+
+    @PutMapping("/update")
+    public ResponseEntity<Void> updateProfile(@RequestBody UserProfileDto request, JwtAuthenticationToken token) {
+        profileService.updateUserProfile(request, token);
+        return ResponseEntity.noContent().build();
+
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<Void> sendPasswordChangeEmail(JwtAuthenticationToken token) {
+        profileService.sendPasswordChangeEmail(token);
+        return ResponseEntity.noContent().build();
     }
 }
