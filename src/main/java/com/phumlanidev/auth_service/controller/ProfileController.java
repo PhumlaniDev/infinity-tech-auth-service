@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/profile")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('user')")
 public class ProfileController {
 
     /**
@@ -29,7 +30,6 @@ public class ProfileController {
      * Comment: this is the placeholder for documentation.
      */
     @GetMapping("/me")
-    @PreAuthorize("hasRole('user')")
     public ResponseEntity<UserProfileDto> getCurrentUserProfile(JwtAuthenticationToken token) {
         log.info("✅ Roles: {}", token.getAuthorities());
         UserProfileDto profile = profileService.getCurrentUserProfile(token);

@@ -2,10 +2,14 @@ package com.phumlanidev.auth_service.exception;
 
 
 import com.phumlanidev.auth_service.dto.ErrorResponseDto;
+
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -101,13 +105,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   @ExceptionHandler(AccessDeniedException.class)
-  public ResponseEntity<ErrorResponseDto> handleAccessDenied(AccessDeniedException ex,
-                                                             WebRequest request) {
-
-    ErrorResponseDto errorResponseDto =
-        new ErrorResponseDto(request.getDescription(false), HttpStatus.FORBIDDEN, ex.getMessage(),
-                LocalDateTime.now());
-
-    return new  ResponseEntity<>(errorResponseDto, HttpStatus.FORBIDDEN);
+  public ResponseEntity<ErrorResponseDto> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(new ErrorResponseDto(
+                    "uri=" + request.getRequestURI(),
+                    HttpStatus.FORBIDDEN,
+                    "Access is denied",
+                    LocalDateTime.now()
+            ));
   }
+
 }

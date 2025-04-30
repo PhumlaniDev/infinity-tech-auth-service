@@ -39,12 +39,11 @@ public class KeycloakConfig {
     logger.info("Configuring Keycloak Admin Client...");
     return KeycloakBuilder.builder()
             .serverUrl(keycloakServerUrl)
-            .realm(keycloakRealm)
-            .clientId(keycloakClientId)
-            .clientSecret(keycloakClientSecret)
+            .realm("master")
+            .clientId("admin-cli")
             .username(keycloakClientAdminUsername)
             .password(keycloakClientAdminPassword)
-            .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
+            .grantType(OAuth2Constants.PASSWORD)
             .build();
   }
 

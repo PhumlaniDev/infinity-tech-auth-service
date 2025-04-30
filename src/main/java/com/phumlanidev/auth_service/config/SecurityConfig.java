@@ -44,7 +44,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/auth/**").permitAll()
                 .requestMatchers("/api/v1/products/**").permitAll()
                 .requestMatchers("/actuator/**").permitAll()
-                    .requestMatchers("/api/v1/profile/**").permitAll()
+                    .requestMatchers("/api/v1/profile/**").hasRole(USER)
                 .requestMatchers("/api/v1/admin/**").hasRole(ADMIN).anyRequest().authenticated()
             ).oauth2ResourceServer(
             oauth2 ->
