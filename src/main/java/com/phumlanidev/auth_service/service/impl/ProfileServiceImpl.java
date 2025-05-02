@@ -1,7 +1,8 @@
 package com.phumlanidev.auth_service.service.impl;
 
 import com.phumlanidev.auth_service.dto.UserProfileDto;
-import com.phumlanidev.auth_service.helper.KeycloakClientService;
+import com.phumlanidev.auth_service.helper.KeycloakAdminHelper;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.representations.idm.UserRepresentation;
@@ -13,11 +14,13 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class ProfileServiceImpl {
 
-    private final KeycloakClientService keycloakClient;
+    private final KeycloakAdminHelper keycloakAdminHelper;
+    private final AuditLogServiceImpl auditLogService;
+    private final HttpServletRequest request;
 
     public UserProfileDto getCurrentUserProfile(JwtAuthenticationToken token) {
         String userId = token.getToken().getSubject();
-        UserRepresentation user = keycloakClient.getUserById(userId);
+        UserRepresentation user = keycloakAdminHelper.getUserById(userId);
 
         return new UserProfileDto(
                 user.getFirstName(),
@@ -26,19 +29,26 @@ public class ProfileServiceImpl {
         );
     }
 
-    public void updateUserProfile(UserProfileDto request, JwtAuthenticationToken token) {
-        String userId = keycloakClient.getUserIdFromPrincipal(token);
-        UserRepresentation user = keycloakClient.getUserById(userId);
+    public void updateUserProfile(UserProfileDto userProfileDto, JwtAuthenticationToken token) {
+        String userId = keycloakAdminHelper.getUserIdFromPrincipal(token);
+        UserRepresentation user = keycloakAdminHelper.getUserById(userId);
+        String ipAddress = request.getRemoteAddr();
 
-        user.setFirstName(request.firstName());
-        user.setLastName(request.lastName());
-        user.setEmail(request.email());
+        user.setFirstName(userProfileDto.firstName());
+        user.setLastName(userProfileDto.lastName());
+        user.setEmail(userProfileDto.email());
 
-        keycloakClient.updateUser(userId, user);
+        keycloakAdminHelper.updateUser(userId, user);
+
+        auditLogService.log("PROFILE_UPDATED", userId, user.getUsername(), ipAddress, "Updated profile info");
     }
 
     public void sendPasswordChangeEmail(JwtAuthenticationToken token) {
-        String userId = keycloakClient.getUserIdFromPrincipal(token);
-        keycloakClient.triggerPasswordReset(userId);
+        String userId = keycloakAdminHelper.getUserIdFromPrincipal(token);
+        UserRepresentation user = keycloakAdminHelper.getUserById(userId);
+        String ipAddress = request.getRemoteAddr();
+
+        keycloakAdminHelper.triggerPasswordReset(userId);
+        auditLogService.log("PASSWORD_RESET_REQUESTED", userId, user.getUsername(), ipAddress, "Sent password reset link");
     }
 }

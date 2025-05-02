@@ -10,6 +10,7 @@ import com.phumlanidev.auth_service.exception.UserNotFoundException;
 import com.phumlanidev.auth_service.exception.auth.AuthenticationFailedException;
 import com.phumlanidev.auth_service.exception.auth.KeycloakCommunicationException;
 import com.phumlanidev.auth_service.exception.auth.UserNotVerified;
+import com.phumlanidev.auth_service.helper.KeycloakAdminHelper;
 import com.phumlanidev.auth_service.mapper.AddressMapper;
 import com.phumlanidev.auth_service.mapper.UserMapper;
 import com.phumlanidev.auth_service.model.Address;
@@ -17,6 +18,7 @@ import com.phumlanidev.auth_service.model.User;
 import com.phumlanidev.auth_service.repository.AddressRepository;
 import com.phumlanidev.auth_service.repository.UserRepository;
 import com.phumlanidev.auth_service.service.IAuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.core.Response;
 import java.net.URI;
@@ -63,6 +65,9 @@ public class AuthServiceImpl implements IAuthService {
   private final PasswordEncoder passwordEncoder;
   private final UserMapper userMapper;
   private final AddressMapper addressMapper;
+  private final HttpServletRequest request;
+  private final AuditLogServiceImpl auditLogService;
+  private final KeycloakAdminHelper keycloakAdminHelper;
 
   @Value("${keycloak.auth-server-url}")
   private String keycloakServerUrl;
@@ -200,12 +205,22 @@ public class AuthServiceImpl implements IAuthService {
    */
   @Override
   public JwtResponseDto login(LoginDto loginDto) {
+    String clientIp = request.getRemoteAddr();
+    String userId = keycloakAdminHelper.getUserIdByUsername(loginDto.getUsername());
+
     try (Keycloak keycloakClient = KeycloakBuilder.builder().serverUrl(keycloakServerUrl)
         .realm(keycloakRealm).clientId(keycloakClientId).clientSecret(keycloakClientSecret)
         .grantType(OAuth2Constants.PASSWORD).username(loginDto.getUsername())
         .password(loginDto.getPassword()).build()) {
 
       AccessTokenResponse tokenResponse = keycloakClient.tokenManager().grantToken();
+
+      auditLogService.log(
+              "LOGIN_SUCCESS",
+              userId,
+              loginDto.getUsername(),
+              clientIp,
+              "Login successful");
 
       return new JwtResponseDto(
               tokenResponse.getToken(),
@@ -215,6 +230,12 @@ public class AuthServiceImpl implements IAuthService {
     } catch (Exception e) {
       log.error("Exception occurred while logging in user {}: {}", loginDto.getUsername(),
           e.getMessage(), e);
+      auditLogService.log(
+              "LOGIN_FAIL",
+              userId,
+              loginDto.getUsername(),
+              clientIp,
+              "Invalid credentials");
     }
     throw new AuthenticationFailedException("Invalid username or password");
   }
