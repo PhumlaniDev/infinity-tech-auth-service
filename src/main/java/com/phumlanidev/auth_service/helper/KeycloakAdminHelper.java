@@ -9,6 +9,10 @@ import org.keycloak.admin.client.resource.RealmResource;
 import org.keycloak.admin.client.resource.UsersResource;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Recover;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +34,12 @@ public class KeycloakAdminHelper {
     @Value("${keycloak.admin.password}")
     private String keycloakAdminPassword;
 
+    @Cacheable(value = "user-id-cache", key = "#username")
+    @Retryable(
+            retryFor = {Exception.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 2000, multiplier = 2)
+    )
     public String getUserIdByUsername(String username) {
         try (Keycloak adminClient = getAdminClient()){
             List<UserRepresentation> users = getUserResource(adminClient).search(username, true);
@@ -48,6 +58,11 @@ public class KeycloakAdminHelper {
         return token.getToken().getSubject();
     }
 
+    @Retryable(
+            retryFor = {Exception.class},
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 2000, multiplier = 2)
+    )
     public UserRepresentation getUserById(String userId) {
         try (Keycloak adminClient = getAdminClient()) {
             return getRealm(adminClient).users().get(userId).toRepresentation();
@@ -84,4 +99,11 @@ public class KeycloakAdminHelper {
         keycloak.realm(keycloakRealm).users().get(userId).executeActionsEmail(Collections.singletonList("UPDATE_PASSWORD"));
 
     }
+
+    @Recover
+    public String recover(Exception e, String username) {
+        log.error("All retries failed for getUserIdByUsername: {}", username, e);
+        return null;
+    }
+
 }
