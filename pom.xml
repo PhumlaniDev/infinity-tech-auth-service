@@ -9,9 +9,9 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.phumlanidev</groupId>
-	<artifactId>auth-service</artifactId>
+	<artifactId>auth_service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>auth-service</name>
+	<name>auth_service</name>
 	<description>Demo project for Spring Boot</description>
 	<url/>
 	<licenses>
