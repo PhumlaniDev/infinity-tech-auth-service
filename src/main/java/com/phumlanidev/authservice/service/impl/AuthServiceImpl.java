@@ -44,7 +44,10 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -102,12 +105,25 @@ public class AuthServiceImpl implements IAuthService {
     user.setAddress(savedAddress);
     userRepository.save(user);
 
+    String clientIp = request.getRemoteAddr();
+    String username = userDto.getUsername();
+
+    auditLogService.log(
+            "REGISTRATION_SUCCESS",
+            String.valueOf(user.getUserId()),
+            username,
+            clientIp,
+            "User registered successfully");
+
     registerKeycloakUser(userDto, rawPassword);
 
     sendEmailVerification(userDto.getEmail());
 
   }
 
+  /**
+   * Comment: this is the placeholder for documentation.
+   */
   private void registerKeycloakUser(UserDto userDto, String rawPassword) {
     try {
       try (Keycloak adminClient = KeycloakBuilder.builder()
@@ -130,7 +146,9 @@ public class AuthServiceImpl implements IAuthService {
     }
   }
 
-
+  /**
+   * Comment: this is the placeholder for documentation.
+   */
   private void createAndAssignKeycloakUser(UsersResource usersResource, RealmResource realmResource,
                                            UserRepresentation keycloakUser, UserDto userDto) {
     try (Response response = usersResource.create(keycloakUser)) { // Try-with-resources
@@ -153,11 +171,17 @@ public class AuthServiceImpl implements IAuthService {
     }
   }
 
+  /**
+   * Comment: this is the placeholder for documentation.
+   */
   private String getUserIdFromLocation(URI location) {
     String path = location.getPath();
     return path.substring(path.lastIndexOf('/') + 1);
   }
 
+  /**
+   * Comment: this is the placeholder for documentation.
+   */
   private UserRepresentation createUserRepresentation(UserDto userDto, String rawPassword) {
     UserRepresentation userRepresentation = new UserRepresentation();
     userRepresentation.setUsername(userDto.getUsername());
@@ -176,12 +200,18 @@ public class AuthServiceImpl implements IAuthService {
     return userRepresentation;
   }
 
+  /**
+   * Comment: this is the placeholder for documentation.
+   */
   private void assignRealmRole(UserResource userResource, RealmResource realmResource,
                                String roleName) {
     RoleRepresentation realmRole = realmResource.roles().get(roleName).toRepresentation();
     userResource.roles().realmLevel().add(Collections.singletonList(realmRole));
   }
 
+  /**
+   * Comment: this is the placeholder for documentation.
+   */
   private void assignClientRole(UserResource userResource, RealmResource realmResource,
                                 String clientRoleName) {
 
@@ -191,7 +221,7 @@ public class AuthServiceImpl implements IAuthService {
       throw new KeycloakCommunicationException("Client not found");
     }
 
-    String clientUuid = clients.get(0).getId();
+    String clientUuid = clients.getFirst().getId();
 
     ClientResource clientResource = realmResource.clients().get(clientUuid);
 
@@ -259,12 +289,34 @@ public class AuthServiceImpl implements IAuthService {
 
     HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(body, headers);
 
+    String clientIp = request.getRemoteAddr();
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    String username = auth != null ? auth.getName() : "anonymous";
+
+    String userId = null;
+    if (auth != null && auth.getPrincipal() instanceof Jwt jwt) {
+      userId = jwt.getSubject(); // Keycloak userId (UUID)
+    }
+
+
     try {
       ResponseEntity<String> response = restTemplate.postForEntity(logoutUri, entity, String.class);
         if (response.getStatusCode().is2xxSuccessful()) {
             log.info("Logout successful for refresh token: {}", refreshToken.getRefreshToken());
+            auditLogService.log(
+                    "LOGOUT_SUCCESS",
+                    userId,
+                    username,
+                    clientIp,
+                    "Logout successfully");
         } else {
             log.error("Logout failed with response: {}", response.getBody());
+            auditLogService.log(
+                  "LOGOUT_FAILED",
+                  userId,
+                  username,
+                  clientIp,
+                  "Logout failed");
             throw new RuntimeException("Logout failed");
         }
     } catch (Exception e) {
