@@ -4,7 +4,6 @@ import com.phumlanidev.authservice.dto.AuditLogDto;
 import com.phumlanidev.authservice.dto.UserSummaryDto;
 import com.phumlanidev.authservice.service.impl.AdminServiceImpl;
 import com.phumlanidev.authservice.service.impl.AuditLogServiceImpl;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -18,6 +17,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -35,7 +36,7 @@ public class AdminController {
     return ResponseEntity.ok(adminService.getAllUsers());
   }
 
-  @GetMapping
+  @GetMapping("/logs")
   public ResponseEntity<Page<AuditLogDto>> getLogs(
           @RequestParam(required = false) String userId,
           @RequestParam(required = false) String action,
