@@ -1,8 +1,9 @@
 package com.phumlanidev.authservice.enums;
 
+import lombok.Getter;
+
 import java.util.Optional;
 import java.util.stream.Stream;
-import lombok.Getter;
 
 /**
  * Comment: this is the placeholder for documentation.

@@ -1,10 +1,6 @@
 package com.phumlanidev.authservice.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
 
 /**
  * Comment: this is the placeholder for documentation.

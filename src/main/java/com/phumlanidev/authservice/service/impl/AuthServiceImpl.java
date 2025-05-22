@@ -21,10 +21,6 @@ import com.phumlanidev.authservice.service.IAuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.NotAuthorizedException;
 import jakarta.ws.rs.core.Response;
-import java.net.URI;
-import java.util.Collections;
-import java.util.List;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.OAuth2Constants;
@@ -52,6 +48,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
+
+import java.net.URI;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Comment: this is the placeholder for documentation.
