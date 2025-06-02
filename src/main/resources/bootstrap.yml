@@ -3,7 +3,6 @@ spring:
     name: auth-service
   cloud:
     config:
-      uri: http://localhost:8888
-      name: auth-service
+      uri: http://config-server:8888/
     bootstrap:
       enabled: true
