@@ -34,9 +34,9 @@ public class ProfileServiceImpl {
         UserRepresentation user = keycloakAdminHelper.getUserById(userId);
         String ipAddress = request.getRemoteAddr();
 
-        user.setFirstName(userProfileDto.firstName());
-        user.setLastName(userProfileDto.lastName());
-        user.setEmail(userProfileDto.email());
+        user.setFirstName(userProfileDto.getFirstName());
+        user.setLastName(userProfileDto.getLastName());
+        user.setEmail(userProfileDto.getEmail());
 
         keycloakAdminHelper.updateUser(userId, user);
 
