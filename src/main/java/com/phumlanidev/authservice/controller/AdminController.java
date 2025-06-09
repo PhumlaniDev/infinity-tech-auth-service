@@ -4,6 +4,7 @@ import com.phumlanidev.authservice.dto.AuditLogDto;
 import com.phumlanidev.authservice.dto.UserSummaryDto;
 import com.phumlanidev.authservice.service.impl.AdminServiceImpl;
 import com.phumlanidev.authservice.service.impl.AuditLogServiceImpl;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -31,13 +32,14 @@ public class AdminController {
   private final AuditLogServiceImpl auditLogService;
 
   @GetMapping("/users")
-  public ResponseEntity<List<UserSummaryDto>> getAllUsers(Authentication auth) {
+  public ResponseEntity<List<UserSummaryDto>> getAllUsers(@Valid Authentication auth) {
     log.info("Authorities = {}", auth.getAuthorities()); // check printed roles
     return ResponseEntity.ok(adminService.getAllUsers());
   }
 
   @GetMapping("/logs")
   public ResponseEntity<Page<AuditLogDto>> getLogs(
+          @Valid
           @RequestParam(required = false) String userId,
           @RequestParam(required = false) String action,
           @RequestParam(defaultValue = "0") int page,

@@ -65,7 +65,7 @@ public class AuthController {
    * Comment: this is the placeholder for documentation.
    */
   @PostMapping("/reset-password")
-    public ResponseEntity<ResponseDto> resetPassword(@RequestBody String email) {
+    public ResponseEntity<ResponseDto> resetPassword(@Valid @RequestBody String email) {
         authServiceImpl.sendResetPasswordEmail(email);
         return ResponseEntity
                 .status(HttpStatus.OK)

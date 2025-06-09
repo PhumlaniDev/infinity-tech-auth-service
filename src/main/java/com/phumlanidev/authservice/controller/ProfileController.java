@@ -2,6 +2,7 @@ package com.phumlanidev.authservice.controller;
 
 import com.phumlanidev.authservice.dto.UserProfileDto;
 import com.phumlanidev.authservice.service.impl.ProfileServiceImpl;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -28,21 +29,21 @@ public class ProfileController {
    * Comment: this is the placeholder for documentation.
    */
   @GetMapping("/me")
-  public ResponseEntity<UserProfileDto> getCurrentUserProfile(JwtAuthenticationToken token) {
+  public ResponseEntity<UserProfileDto> getCurrentUserProfile(@Valid JwtAuthenticationToken token) {
     log.info("✅ Roles: {}", token.getAuthorities());
     UserProfileDto profile = profileService.getCurrentUserProfile(token);
     return ResponseEntity.ok(profile);
   }
 
   @PatchMapping("/update")
-  public ResponseEntity<Void> updateProfile(@RequestBody UserProfileDto request, JwtAuthenticationToken token) {
+  public ResponseEntity<Void> updateProfile(@Valid @RequestBody UserProfileDto request, JwtAuthenticationToken token) {
     profileService.updateUserProfile(request, token);
     return ResponseEntity.noContent().build();
 
   }
 
   @PostMapping("/change-password")
-  public ResponseEntity<Void> sendPasswordChangeEmail(JwtAuthenticationToken token) {
+  public ResponseEntity<Void> sendPasswordChangeEmail(@Valid JwtAuthenticationToken token) {
     profileService.sendPasswordChangeEmail(token);
     return ResponseEntity.noContent().build();
   }
