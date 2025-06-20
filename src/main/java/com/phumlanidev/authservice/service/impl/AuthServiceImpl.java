@@ -71,6 +71,7 @@ public class AuthServiceImpl implements IAuthService {
   private final HttpServletRequest request;
   private final AuditLogServiceImpl auditLogService;
   private final KeycloakAdminHelper keycloakAdminHelper;
+  private final RestTemplate restTemplate;
 
   @Value("${keycloak.auth-server-url}")
   private String keycloakServerUrl;
@@ -86,9 +87,6 @@ public class AuthServiceImpl implements IAuthService {
   private String keycloakAdminPassword;
   @Value("${keycloak.logout_uri}")
   private String logoutUri;
-
-  private final RestTemplate restTemplate;
-
 
   /**
    * Comment: this is the placeholder for documentation.
