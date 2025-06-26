@@ -1,6 +1,7 @@
 package com.phumlanidev.authservice.service.impl;
 
 
+import com.phumlanidev.authservice.config.JwtAuthenticationConverter;
 import com.phumlanidev.authservice.dto.JwtResponseDto;
 import com.phumlanidev.authservice.dto.LoginDto;
 import com.phumlanidev.authservice.dto.TokenLogoutRequest;
@@ -53,9 +54,7 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Comment: this is the placeholder for documentation.
- */
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -72,6 +71,7 @@ public class AuthServiceImpl implements IAuthService {
   private final AuditLogServiceImpl auditLogService;
   private final KeycloakAdminHelper keycloakAdminHelper;
   private final RestTemplate restTemplate;
+  private final JwtAuthenticationConverter jwtAuthenticationConverter;
 
   @Value("${keycloak.auth-server-url}")
   private String keycloakServerUrl;
@@ -88,9 +88,6 @@ public class AuthServiceImpl implements IAuthService {
   @Value("${keycloak.logout_uri}")
   private String logoutUri;
 
-  /**
-   * Comment: this is the placeholder for documentation.
-   */
   @Override
   public void registerUser(UserDto userDto) {
     String rawPassword = userDto.getPassword();
@@ -103,15 +100,8 @@ public class AuthServiceImpl implements IAuthService {
     user.setAddress(savedAddress);
     userRepository.save(user);
 
-    String clientIp = request.getRemoteAddr();
-    String username = userDto.getUsername();
-
-    auditLogService.log(
-            "REGISTRATION_SUCCESS",
-            String.valueOf(user.getUserId()),
-            username,
-            clientIp,
-            "User registered successfully");
+    logAudit("USER_REGISTRATION",
+            "User registered successfully: " + userDto.getUsername());
 
     registerKeycloakUser(userDto, rawPassword);
 
@@ -119,9 +109,6 @@ public class AuthServiceImpl implements IAuthService {
 
   }
 
-  /**
-   * Comment: this is the placeholder for documentation.
-   */
   private void registerKeycloakUser(UserDto userDto, String rawPassword) {
     try {
       try (Keycloak adminClient = KeycloakBuilder.builder()
@@ -137,16 +124,17 @@ public class AuthServiceImpl implements IAuthService {
         UserRepresentation keycloakUser = createUserRepresentation(userDto, rawPassword);
 
         createAndAssignKeycloakUser(usersResource, realmResource, keycloakUser, userDto);
+        logAudit("USER_CREATION_SUCCESS",
+                "User created successfully in Keycloak: " + userDto.getUsername());
       }
     } catch (Exception e) {
       log.error("Exception occurred while creating user {} in Keycloak: {}", userDto.getUsername(),
           e.getMessage(), e);
+      logAudit("USER_CREATION_FAIL",
+              "Failed to create user in Keycloak: " + userDto.getUsername() + ", Error: " + e.getMessage());
     }
   }
 
-  /**
-   * Comment: this is the placeholder for documentation.
-   */
   private void createAndAssignKeycloakUser(UsersResource usersResource, RealmResource realmResource,
                                            UserRepresentation keycloakUser, UserDto userDto) {
     try (Response response = usersResource.create(keycloakUser)) { // Try-with-resources
@@ -169,17 +157,11 @@ public class AuthServiceImpl implements IAuthService {
     }
   }
 
-  /**
-   * Comment: this is the placeholder for documentation.
-   */
   private String getUserIdFromLocation(URI location) {
     String path = location.getPath();
     return path.substring(path.lastIndexOf('/') + 1);
   }
 
-  /**
-   * Comment: this is the placeholder for documentation.
-   */
   private UserRepresentation createUserRepresentation(UserDto userDto, String rawPassword) {
     UserRepresentation userRepresentation = new UserRepresentation();
     userRepresentation.setUsername(userDto.getUsername());
@@ -198,18 +180,12 @@ public class AuthServiceImpl implements IAuthService {
     return userRepresentation;
   }
 
-  /**
-   * Comment: this is the placeholder for documentation.
-   */
   private void assignRealmRole(UserResource userResource, RealmResource realmResource,
                                String roleName) {
     RoleRepresentation realmRole = realmResource.roles().get(roleName).toRepresentation();
     userResource.roles().realmLevel().add(Collections.singletonList(realmRole));
   }
 
-  /**
-   * Comment: this is the placeholder for documentation.
-   */
   private void assignClientRole(UserResource userResource, RealmResource realmResource,
                                 String clientRoleName) {
 
@@ -228,12 +204,8 @@ public class AuthServiceImpl implements IAuthService {
     userResource.roles().clientLevel(clientUuid).add(Collections.singletonList(clientRole));
   }
 
-  /**
-   * Comment: this is the placeholder for documentation.
-   */
   @Override
   public JwtResponseDto login(LoginDto loginDto) {
-    String clientIp = request.getRemoteAddr();
     String userId = keycloakAdminHelper.getUserIdByUsername(loginDto.getUsername());
 
     try (Keycloak keycloakClient = KeycloakBuilder.builder().serverUrl(keycloakServerUrl)
@@ -243,12 +215,8 @@ public class AuthServiceImpl implements IAuthService {
 
       AccessTokenResponse tokenResponse = keycloakClient.tokenManager().grantToken();
 
-      auditLogService.log(
-              "LOGIN_SUCCESS",
-              userId,
-              loginDto.getUsername(),
-              clientIp,
-              "Login successful");
+      logAudit("LOGIN_SUCCESS",
+              "User: " + loginDto.getUsername() + " logged in successfully, UserId: " + userId);
 
       return new JwtResponseDto(
               tokenResponse.getToken(),
@@ -258,12 +226,8 @@ public class AuthServiceImpl implements IAuthService {
     } catch (Exception e) {
       log.error("Exception occurred while logging in user {}: {}", loginDto.getUsername(),
           e.getMessage(), e);
-      auditLogService.log(
-              "LOGIN_FAIL",
-              userId,
-              loginDto.getUsername(),
-              clientIp,
-              "Invalid credentials");
+      logAudit("LOGIN_FAIL",
+              "Login failed for user: " + loginDto.getUsername() + ", Error: " + e.getMessage());
     }
     throw new AuthenticationFailedException("Invalid username or password");
   }
@@ -286,36 +250,19 @@ public class AuthServiceImpl implements IAuthService {
     body.add("refresh_token", refreshToken.getRefreshToken());
 
     HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(body, headers);
-
-    String clientIp = request.getRemoteAddr();
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     String username = auth != null ? auth.getName() : "anonymous";
-
-    String userId = null;
-    if (auth != null && auth.getPrincipal() instanceof Jwt jwt) {
-      userId = jwt.getSubject(); // Keycloak userId (UUID)
-    }
-
 
     try {
       ResponseEntity<String> response = restTemplate.postForEntity(logoutUri, entity, String.class);
         if (response.getStatusCode().is2xxSuccessful()) {
             log.info("Logout successful for refresh token: {}", refreshToken.getRefreshToken());
-            auditLogService.log(
-                    "LOGOUT_SUCCESS",
-                    userId,
-                    username,
-                    clientIp,
-                    "Logout successfully");
+            logAudit("LOGOUT_SUCCESS",
+                    "User: " + username + " logged out successfully, Refresh Token: " + refreshToken.getRefreshToken());
         } else {
             log.error("Logout failed with response: {}", response.getBody());
-            auditLogService.log(
-                  "LOGOUT_FAILED",
-                  userId,
-                  username,
-                  clientIp,
-                  "Logout failed");
-            throw new RuntimeException("Logout failed");
+            logAudit("LOGOUT_FAIL",
+                    "Logout failed for user: " + username + ", Response: " + response.getBody());
         }
     } catch (Exception e) {
         log.error("Exception occurred during logout: {}", e.getMessage(), e);
@@ -348,9 +295,14 @@ public class AuthServiceImpl implements IAuthService {
               .users()
               .get(user.getId())
                 .executeActionsEmail(Collections.singletonList("UPDATE_PASSWORD"));
+
+      logAudit("SEND_RESET_PASSWORD_EMAIL",
+              "Password reset link sent to user: " + email);
     } catch (Exception e) {
       log.error("Exception occurred while send password reset link to user {}: {}", email,
               e.getMessage(), e);
+      logAudit("SEND_RESET_PASSWORD_EMAIL_FAIL",
+              "Failed to send password reset link to user: " + email + ", Error: " + e.getMessage());
     }
   }
 
@@ -386,5 +338,22 @@ public class AuthServiceImpl implements IAuthService {
       log.error("Exception occurred while send password reset link to user {}: {}", email,
               e.getMessage(), e);
     }
+  }
+
+  private void logAudit(String action, String details) {
+    String clientIp = request.getRemoteAddr();
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    String username = auth != null ? auth.getName() : "anonymous";
+    Jwt jwt = jwtAuthenticationConverter.getJwt();
+    String userId = jwtAuthenticationConverter.extractUserId(jwt);
+
+
+    auditLogService.log(
+            action,
+            userId,
+            username,
+            clientIp,
+            details
+    );
   }
 }
