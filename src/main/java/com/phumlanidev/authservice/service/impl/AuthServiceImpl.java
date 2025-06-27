@@ -44,7 +44,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -342,10 +341,8 @@ public class AuthServiceImpl implements IAuthService {
 
   private void logAudit(String action, String details) {
     String clientIp = request.getRemoteAddr();
-    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-    String username = auth != null ? auth.getName() : "anonymous";
-    Jwt jwt = jwtAuthenticationConverter.getJwt();
-    String userId = jwtAuthenticationConverter.extractUserId(jwt);
+    String username = jwtAuthenticationConverter.getCurrentUsername();
+    String userId = jwtAuthenticationConverter.getCurrentUserId();
 
 
     auditLogService.log(
