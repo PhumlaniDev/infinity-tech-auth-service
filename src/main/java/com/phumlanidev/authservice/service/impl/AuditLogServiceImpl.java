@@ -39,13 +39,17 @@ public class AuditLogServiceImpl {
     }
 
     private AuditLogDto toDto(AuditLog log) {
+        String truncatedDetails = log.getDetails().length() > 255
+                ? log.getDetails().substring(0, 255)
+                : log.getDetails();
+
         return AuditLogDto.builder()
                 .id(String.valueOf(log.getId()))
                 .userId(log.getUserId())
                 .username(log.getUsername())
                 .action(log.getAction())
                 .ip(log.getIpAddress())
-                .details(log.getDetails())
+                .details(truncatedDetails)
                 .timestamp(log.getTimestamp())
                 .build();
     }

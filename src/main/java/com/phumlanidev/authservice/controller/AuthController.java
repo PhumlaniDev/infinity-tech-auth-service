@@ -65,11 +65,20 @@ public class AuthController {
    * Comment: this is the placeholder for documentation.
    */
   @PostMapping("/reset-password")
-    public ResponseEntity<ResponseDto> resetPassword(@Valid @RequestBody String email) {
-        authServiceImpl.sendResetPasswordEmail(email);
-        return ResponseEntity
-                .status(HttpStatus.OK)
-                .body(new ResponseDto(Constant.STATUS_CODE_OK,
-                        "Reset password email sent successfully."));
-    }
+  public ResponseEntity<ResponseDto> resetPassword(@Valid @RequestBody String email) {
+    authServiceImpl.sendPasswordResetNotification(email);
+    return ResponseEntity
+            .status(HttpStatus.OK)
+            .body(new ResponseDto(Constant.STATUS_CODE_OK,
+                    "Reset password email sent successfully."));
+  }
+
+  @PostMapping
+  public ResponseEntity<ResponseDto> verifyEmail(@Valid @RequestBody String email) {
+    authServiceImpl.sendEmailVerificationNotification(email);
+    return ResponseEntity
+            .status(HttpStatus.OK)
+            .body(new ResponseDto(Constant.STATUS_CODE_OK,
+                    "Email verification sent successfully."));
+  }
 }

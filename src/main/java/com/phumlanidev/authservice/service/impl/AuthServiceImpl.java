@@ -2,15 +2,10 @@ package com.phumlanidev.authservice.service.impl;
 
 
 import com.phumlanidev.authservice.config.JwtAuthenticationConverter;
-import com.phumlanidev.authservice.dto.JwtResponseDto;
-import com.phumlanidev.authservice.dto.LoginDto;
-import com.phumlanidev.authservice.dto.TokenLogoutRequest;
-import com.phumlanidev.authservice.dto.UserDto;
+import com.phumlanidev.authservice.dto.*;
 import com.phumlanidev.authservice.enums.RoleMapping;
-import com.phumlanidev.authservice.exception.UserNotFoundException;
 import com.phumlanidev.authservice.exception.auth.AuthenticationFailedException;
 import com.phumlanidev.authservice.exception.auth.KeycloakCommunicationException;
-import com.phumlanidev.authservice.exception.auth.UserNotVerified;
 import com.phumlanidev.authservice.helper.KeycloakAdminHelper;
 import com.phumlanidev.authservice.mapper.AddressMapper;
 import com.phumlanidev.authservice.mapper.UserMapper;
@@ -104,8 +99,116 @@ public class AuthServiceImpl implements IAuthService {
 
     registerKeycloakUser(userDto, rawPassword);
 
-    sendEmailVerification(userDto.getEmail());
+    sendEmailVerificationNotification(userDto.getEmail());
 
+  }
+
+  @Override
+  public JwtResponseDto login(LoginDto loginDto) {
+    String userId = keycloakAdminHelper.getUserIdByUsername(loginDto.getUsername());
+
+    try (Keycloak keycloakClient = KeycloakBuilder.builder().serverUrl(keycloakServerUrl)
+            .realm(keycloakRealm).clientId(keycloakClientId).clientSecret(keycloakClientSecret)
+            .grantType(OAuth2Constants.PASSWORD).username(loginDto.getUsername())
+            .password(loginDto.getPassword()).build()) {
+
+      AccessTokenResponse tokenResponse = keycloakClient.tokenManager().grantToken();
+
+      logAudit("LOGIN_SUCCESS",
+              "User: " + loginDto.getUsername() + " logged in successfully, UserId: " + userId);
+
+      return new JwtResponseDto(
+              tokenResponse.getToken(),
+              tokenResponse.getRefreshToken(),
+              tokenResponse.getExpiresIn()
+      );
+    } catch (Exception e) {
+      log.error("Exception occurred while logging in user {}: {}", loginDto.getUsername(),
+              e.getMessage(), e);
+      logAudit("LOGIN_FAIL",
+              "Login failed for user: " + loginDto.getUsername() + ", Error: " + e.getMessage());
+    }
+    throw new AuthenticationFailedException("Invalid username or password");
+  }
+
+  @Override
+  public void logout(TokenLogoutRequest refreshToken) {
+    if (refreshToken == null || refreshToken.getRefreshToken() == null) {
+      log.error("Refresh token is null. Cannot proceed with logout.");
+      throw new IllegalArgumentException("Refresh token must not be null");
+    }
+
+    log.info("Attempting to logout user with refresh token: {}", refreshToken.getRefreshToken());
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+    MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
+    body.add("client_id", keycloakClientId);
+    body.add("client_secret", keycloakClientSecret);
+    body.add("refresh_token", refreshToken.getRefreshToken());
+
+    HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(body, headers);
+    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+    String username = auth != null ? auth.getName() : "anonymous";
+
+    try {
+      ResponseEntity<String> response = restTemplate.postForEntity(logoutUri, entity, String.class);
+      if (response.getStatusCode().is2xxSuccessful()) {
+        log.info("Logout successful for refresh token: {}", refreshToken.getRefreshToken());
+        logAudit("LOGOUT_SUCCESS",
+                "User: " + username + " logged out successfully");
+      } else {
+        log.error("Logout failed with response: {}", response.getBody());
+        logAudit("LOGOUT_FAIL",
+                "Logout failed for user: " + username);
+      }
+    } catch (Exception e) {
+      log.error("Exception occurred during logout: {}", e.getMessage(), e);
+      throw new RuntimeException("Logout failed due to an exception", e);
+    }
+  }
+
+  @Override
+  public void sendPasswordResetNotification(String email) {
+    String url = "http://localhost:9500/api/v1/notifications/password-reset";
+    PasswordResetRequestDto passwordResetDto = PasswordResetRequestDto.builder().email(email).build();
+
+    try {
+      String token = jwtAuthenticationConverter.getCurrentJwt().getTokenValue();
+
+      HttpHeaders headers = new HttpHeaders();
+      headers.setBearerAuth(token);
+      headers.setContentType(MediaType.APPLICATION_JSON);
+
+      HttpEntity<PasswordResetRequestDto> requestDtoHttpEntity = new HttpEntity<>(passwordResetDto, headers);
+
+      restTemplate.postForEntity(url, requestDtoHttpEntity, Void.class);
+      log.info("Password reset notification sent to {}", email);
+    } catch (Exception e) {
+      log.error("Failed to send password reset notification to {}: {}", email, e.getMessage());
+    }
+  }
+
+  @Override
+  public void sendEmailVerificationNotification(String email) {
+    String url = "http://localhost:9500/api/v1/notifications/email-verification";
+    PasswordResetRequestDto emailVerificationDto = PasswordResetRequestDto.builder().email(email).build();
+
+    try {
+      String token = jwtAuthenticationConverter.getCurrentJwt().getTokenValue();
+
+      HttpHeaders headers = new HttpHeaders();
+      headers.setBearerAuth(token);
+      headers.setContentType(MediaType.APPLICATION_JSON);
+
+      HttpEntity<PasswordResetRequestDto> requestDtoHttpEntity = new HttpEntity<>(emailVerificationDto, headers);
+
+      restTemplate.postForEntity(url, requestDtoHttpEntity, Void.class);
+      log.info("Email verification notification sent to {}", email);
+    } catch (Exception e) {
+      log.error("Failed to send email verification notification to {}: {}", email, e.getMessage());
+    }
   }
 
   private void registerKeycloakUser(UserDto userDto, String rawPassword) {
@@ -201,142 +304,6 @@ public class AuthServiceImpl implements IAuthService {
     RoleRepresentation clientRole = clientResource.roles().get(clientRoleName).toRepresentation();
 
     userResource.roles().clientLevel(clientUuid).add(Collections.singletonList(clientRole));
-  }
-
-  @Override
-  public JwtResponseDto login(LoginDto loginDto) {
-    String userId = keycloakAdminHelper.getUserIdByUsername(loginDto.getUsername());
-
-    try (Keycloak keycloakClient = KeycloakBuilder.builder().serverUrl(keycloakServerUrl)
-        .realm(keycloakRealm).clientId(keycloakClientId).clientSecret(keycloakClientSecret)
-        .grantType(OAuth2Constants.PASSWORD).username(loginDto.getUsername())
-        .password(loginDto.getPassword()).build()) {
-
-      AccessTokenResponse tokenResponse = keycloakClient.tokenManager().grantToken();
-
-      logAudit("LOGIN_SUCCESS",
-              "User: " + loginDto.getUsername() + " logged in successfully, UserId: " + userId);
-
-      return new JwtResponseDto(
-              tokenResponse.getToken(),
-              tokenResponse.getRefreshToken(),
-              tokenResponse.getExpiresIn()
-      );
-    } catch (Exception e) {
-      log.error("Exception occurred while logging in user {}: {}", loginDto.getUsername(),
-          e.getMessage(), e);
-      logAudit("LOGIN_FAIL",
-              "Login failed for user: " + loginDto.getUsername() + ", Error: " + e.getMessage());
-    }
-    throw new AuthenticationFailedException("Invalid username or password");
-  }
-
-  @Override
-  public void logout(TokenLogoutRequest refreshToken) {
-    if (refreshToken == null || refreshToken.getRefreshToken() == null) {
-      log.error("Refresh token is null. Cannot proceed with logout.");
-      throw new IllegalArgumentException("Refresh token must not be null");
-    }
-
-    log.info("Attempting to logout user with refresh token: {}", refreshToken.getRefreshToken());
-
-    HttpHeaders headers = new HttpHeaders();
-    headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-    MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
-    body.add("client_id", keycloakClientId);
-    body.add("client_secret", keycloakClientSecret);
-    body.add("refresh_token", refreshToken.getRefreshToken());
-
-    HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(body, headers);
-    Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-    String username = auth != null ? auth.getName() : "anonymous";
-
-    try {
-      ResponseEntity<String> response = restTemplate.postForEntity(logoutUri, entity, String.class);
-        if (response.getStatusCode().is2xxSuccessful()) {
-            log.info("Logout successful for refresh token: {}", refreshToken.getRefreshToken());
-            logAudit("LOGOUT_SUCCESS",
-                    "User: " + username + " logged out successfully, Refresh Token: " + refreshToken.getRefreshToken());
-        } else {
-            log.error("Logout failed with response: {}", response.getBody());
-            logAudit("LOGOUT_FAIL",
-                    "Logout failed for user: " + username + ", Response: " + response.getBody());
-        }
-    } catch (Exception e) {
-        log.error("Exception occurred during logout: {}", e.getMessage(), e);
-        throw new RuntimeException("Logout failed due to an exception", e);
-    }
-  }
-
-  @Override
-  public void sendResetPasswordEmail(String email) {
-
-    try (Keycloak adminClient = KeycloakBuilder.builder()
-            .serverUrl(keycloakServerUrl)
-            .realm("master")
-            .clientId("admin-cli")
-            .username(keycloakAdminUsername)
-            .password(keycloakAdminPassword)
-            .grantType(OAuth2Constants.PASSWORD)
-            .build()) {
-
-      List<UserRepresentation> users = adminClient.realm(keycloakRealm)
-              .users()
-              .searchByEmail(email, true); // or paginate properly
-
-      UserRepresentation user = users.stream()
-              .filter(u -> email.equalsIgnoreCase(u.getEmail()))
-              .findFirst()
-              .orElseThrow(() -> new UserNotFoundException("User not found"));
-
-      adminClient.realm(keycloakRealm)
-              .users()
-              .get(user.getId())
-                .executeActionsEmail(Collections.singletonList("UPDATE_PASSWORD"));
-
-      logAudit("SEND_RESET_PASSWORD_EMAIL",
-              "Password reset link sent to user: " + email);
-    } catch (Exception e) {
-      log.error("Exception occurred while send password reset link to user {}: {}", email,
-              e.getMessage(), e);
-      logAudit("SEND_RESET_PASSWORD_EMAIL_FAIL",
-              "Failed to send password reset link to user: " + email + ", Error: " + e.getMessage());
-    }
-  }
-
-  private void sendEmailVerification(String email) {
-    try (Keycloak adminClient = KeycloakBuilder.builder()
-            .serverUrl(keycloakServerUrl)
-            .realm("master")
-            .clientId("admin-cli")
-            .username(keycloakAdminUsername)
-            .password(keycloakAdminPassword)
-            .grantType(OAuth2Constants.PASSWORD)
-            .build()) {
-
-      List<UserRepresentation> users = adminClient.realm(keycloakRealm)
-              .users()
-              .searchByEmail(email, true); // or paginate properly
-
-      UserRepresentation user = users.stream()
-              .filter(u -> email.equalsIgnoreCase(u.getEmail()))
-              .findFirst()
-              .orElseThrow(() -> new UserNotFoundException("User not found"));
-
-      if (!Boolean.TRUE.equals(user.isEmailVerified())) {
-        adminClient
-                .realm(keycloakRealm)
-                .users()
-                .get(user.getId())
-                .sendVerifyEmail();
-        log.warn("User with email {} is not verified", email);
-        throw new UserNotVerified("User not verified");
-      }
-    } catch (Exception e) {
-      log.error("Exception occurred while send password reset link to user {}: {}", email,
-              e.getMessage(), e);
-    }
   }
 
   private void logAudit(String action, String details) {
