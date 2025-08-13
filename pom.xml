@@ -136,8 +136,71 @@
 		</dependencies>
 	</dependencyManagement>
 
+	<distributionManagement>
+		<repository>
+			<id>nexus-releases</id>
+			<name>Nexus Releases Repository</name>
+			<url>https://nexus.phumlaniarendse.co.za/repository/maven-releases/</url>
+		</repository>
+		<snapshotRepository>
+			<id>nexus-snapshots</id>
+			<name>Nexus Snapshots Repository</name>
+			<url>https://nexus.phumlaniarendse.co.za/repository/maven-snapshots/</url>
+		</snapshotRepository>
+	</distributionManagement>
+
+	<repositories>
+		<repository>
+			<id>nexus</id>
+			<url>https://nexus.phumlaniarendse.co.za/repository/maven-public/</url>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+		</repository>
+	</repositories>
+
 	<build>
 		<plugins>
+			<!-- Standard JAR for deployment -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<version>3.3.0</version>
+				<configuration>
+					<archive>
+						<manifest>
+							<addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+						</manifest>
+					</archive>
+				</configuration>
+			</plugin>
+
+			<!-- Fat jar for local run -->
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>repackage</id>
+						<phase>package</phase> <!-- Only runs when packaging -->
+						<goals>
+							<goal>repackage</goal>
+						</goals>
+						<configuration>
+							<classifier>exec</classifier> <!-- Fat jar gets "-exec" suffix -->
+							<excludeDevtools>false</excludeDevtools>
+						</configuration>
+					</execution>
+				</executions>
+				<configuration>
+					<!-- Ensure fat jar is NOT attached to deploy -->
+					<attach>false</attach>
+				</configuration>
+			</plugin>
+
 			<!-- Checkstyle Plugin -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -165,39 +228,7 @@
 					<linkXRef>false</linkXRef>
 				</configuration>
 			</plugin>
-			<!--spring maven-->
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-				<configuration>
-					<excludes>
-						<exclude>
-							<groupId>org.projectlombok</groupId>
-							<artifactId>lombok</artifactId>
-						</exclude>
-					</excludes>
-				</configuration>
-			</plugin>
-			<!-- jasypt -->
-			<plugin>
-				<groupId>com.github.ulisesbocchio</groupId>
-				<artifactId>jasypt-maven-plugin</artifactId>
-				<version>3.0.3</version>
-			</plugin>
-			<!-- maven deploy -->
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-deploy-plugin</artifactId>
-				<version>3.1.3</version>
-				<executions>
-					<execution>
-						<id>default-deploy</id>
-						<goals>
-							<goal>deploy</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
+
 			<!--  Jacoco  -->
 			<plugin>
 				<groupId>org.jacoco</groupId>
@@ -221,6 +252,7 @@
 					</execution>
 				</executions>
 			</plugin>
+
 			<!--  Maven Surefire  -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -239,13 +271,6 @@
 					</dependency>
 				</dependencies>
 			</plugin>
-			<!--  SonarCloud  -->
-			<plugin>
-				<groupId>org.sonarsource.scanner.maven</groupId>
-				<artifactId>sonar-maven-plugin</artifactId>
-				<version>5.0.0.4389</version>
-			</plugin>
-
 		</plugins>
 	</build>
 
@@ -296,5 +321,4 @@
 			</build>
 		</profile>
 	</profiles>
-
 </project>
