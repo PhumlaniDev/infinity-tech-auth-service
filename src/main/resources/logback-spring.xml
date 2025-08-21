@@ -2,7 +2,7 @@
 <configuration>
 
 	<!-- Define variables -->
-	<property name="LOKI_URL" value="http://${loki:localhost}:3100/loki/api/v1/push" />
+	<property name="LOKI_URL" value="http://loki:3100/loki/api/v1/push" />
 	<property name="SERVICE_NAME" value="product-service" />
 	<property name="ENVIRONMENT" value="dev" />
 
