@@ -3,7 +3,7 @@
 
 	<!-- Define variables -->
 	<property name="LOKI_URL" value="http://loki:3100/loki/api/v1/push" />
-	<property name="SERVICE_NAME" value="product-service" />
+	<property name="SERVICE_NAME" value="auth-service" />
 	<property name="ENVIRONMENT" value="dev" />
 
 	<!-- Console Logging -->
