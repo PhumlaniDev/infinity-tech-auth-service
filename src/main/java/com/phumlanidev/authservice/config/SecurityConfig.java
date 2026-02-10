@@ -23,8 +23,7 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
   public static final String ADMIN = RoleMapping.ADMIN.getRealmRole();
-  public static final String USER = RoleMapping.USER.getRealmRole();
-  private final JwtAuthConverter jwtAuthConverter;
+  private final JwtAuthenticationConverter jwtAuthenticationConverter;
 
   /**
    * Comment: this is the placeholder for documentation.
@@ -48,7 +47,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/admin/**").hasRole(ADMIN).anyRequest().authenticated()
             ).oauth2ResourceServer(
             oauth2 ->
-                oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter)))
+                oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))
         .sessionManagement(
             session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
