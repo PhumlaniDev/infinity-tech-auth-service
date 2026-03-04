@@ -13,22 +13,15 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * Comment: this is the placeholder for documentation.
- */
 @RestController
 @RequestMapping("/api/v1/auth/")
 @RequiredArgsConstructor
 public class AuthController {
 
-  /**
-   * Comment: this is the placeholder for documentation.
-   */
+
   private final AuthServiceImpl authServiceImpl;
 
-  /**
-   * Comment: this is the placeholder for documentation.
-   */
+
   @PostMapping("/register")
   public ResponseEntity<ResponseDto> register(@Valid @RequestBody UserDto userDto) {
     authServiceImpl.registerUser(userDto);
@@ -38,9 +31,7 @@ public class AuthController {
                     "You have successfully Registered."));
   }
 
-  /**
-   * Comment: this is the placeholder for documentation.
-   */
+
   @PostMapping("/login")
   public ResponseEntity<JwtResponseDto> login(@Valid @RequestBody LoginDto loginDto) {
     String accessToken = authServiceImpl.login(loginDto).getAccessToken();
@@ -49,9 +40,7 @@ public class AuthController {
     return ResponseEntity.ok(new JwtResponseDto(accessToken, refreshToken, expiresIn));
   }
 
-  /**
-   * Comment: this is the placeholder for documentation.
-   */
+
   @PostMapping("/logout")
   public ResponseEntity<ResponseDto> logout(@Valid @RequestBody TokenLogoutRequest refreshToken) {
     authServiceImpl.logout(refreshToken);
@@ -61,9 +50,7 @@ public class AuthController {
                     "You have successfully logged out."));
   }
 
-  /**
-   * Comment: this is the placeholder for documentation.
-   */
+
   @PostMapping("/reset-password")
   public ResponseEntity<ResponseDto> resetPassword(@Valid @RequestBody String email) {
     authServiceImpl.sendPasswordResetNotification(email);
