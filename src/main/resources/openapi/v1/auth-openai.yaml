@@ -1,0 +1,365 @@
+openapi: 3.1.0
+info:
+  title: Auth API
+  description: |
+    REST API for user authentication, registration, login, logout, password reset and email verification flow.
+  version: 1.0.0
+  contact:
+    name: Infinity Tech Support
+    email: infinitytech@support.co.za
+  license:
+    name: Proprietary License - All rights reserved.
+    url: https://infinitytech.co.za/terms
+    
+servers:
+  - url: https://api.infinitytech.com/v1
+    description: Production server
+  - url: https://staging-api.infinitytech.com/v1
+    description: Staging server
+    
+tags:
+  - name: Authentication
+    description: Endpoints related to user registration, login, password reset and recovery and session management.
+
+paths:
+  /auth/register:
+    post:
+      tags:
+          - Authentication
+      summary: Register a new user
+      description: Create a new user account with email and password.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegistrationRequest'
+            examples:
+              success:
+                summary: Valid registration payload
+                value:
+                  email: john.doe@example.com
+                  password: StrongP@ssw0rd
+                  firstname: John
+                  lastname: Doe
+                  phone: "+1234567890"
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              examples:
+                statusCode: 201
+                message: "User registered successfully. Please check your email to verify your account."
+        '400':
+          description: Bad request - Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/responses/BadRequest'
+              examples:
+                statusCode: 400
+                message: Invalid email format or password does not meet complexity requirements.
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                statusCode: 409
+                message: Email already exists. Please use a different email address.
+  
+  /auth/login:
+    post:
+      tags:
+          - Authentication
+      summary: Authenticate user and get JWT tokens
+      description: Return access + refresh tokens on successful credentials.
+      opertaionId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: User authenticated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JwtResponse'
+            examples:
+              statusCode: 200
+              message: "User authenticated successfully."
+              accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+              refreshToken: "dGhpc2lzYXJlZnJlc2h0b2tlbg=="
+        '400':
+          description: Bad request - Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                statusCode: 400
+                message: "Invalid email format or password is required."
+        '401':
+          description: Unauthorized - Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                statusCode: 401
+                message: "Invalid email or password. Please try again."
+  
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user (invalidate refresh token)
+      description: Invalidate the user's refresh token to log them out.
+      operationId: logoutUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '200':
+          description: User logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              examples:
+                statusCode: 200
+                message: "User logged out successfully."
+        '400':
+          description: Bad request - Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/responses/BadRequest'
+              examples:
+                statusCode: 400
+                message: "A Valid Refresh token is required."
+  
+  /auth/reset-password:
+    post:
+      tags:
+        - Authentication
+      summary: Request password reset
+      description: Send a password reset email with token/link to the user.
+      operationId: requestPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+              required:
+                - email
+      responses:
+        '200':
+          description: Password reset email sent successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              examples:
+                statusCode: 200
+                message: "Password reset email sent successfully. Please check your inbox."
+        '400':
+          description: Bad request - Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/responses/BadRequest'
+              examples:
+                statusCode: 400
+                message: "Invalid email format. Please provide a valid email address."
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                statusCode: 404
+                message: "No user found with the provided email address."
+  
+  /auth/verify-email:
+    post:
+      tags:
+        - Authentication
+      summary: Request email verification
+      description: Sends verification email (usually after registration or email change).
+      operationId: sendVerificationEmail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@example.com"
+              required:
+                - email
+      responses:
+        '200':
+          description: Verification email send
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              examples:
+                statusCode: 200
+                message: "Email verification sent successfully."
+        '400':
+          description: Bad request - Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/responses/BadRequest'
+              examples:
+                statusCode: 400
+                message: "Invalid email address. Please request a new email verification with a valid email address."
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                statusCode: 404
+                message: No user found for the provided verification email.
+
+components:
+  schemas:
+    
+    UserRegistrationRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: john.doe@example.com
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: SecureP@ssw0rd2025
+        firstName:
+          type: string
+          example: John
+        lastName:
+          type: string
+          example: Doe
+        phone:
+          type: string
+          example: "+27821234567"
+    
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    
+    JwtResponse:
+      type: object
+      required:
+        - accessToken
+        - refreshToken
+        - expiresIn
+      properties:
+        accessToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refreshToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        expiresIn:
+          type: integer
+          description: Time in seconds until access token expires
+          example: 900
+    
+    LogoutRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+    
+    SuccessResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: Operation completed successfully
+    
+    ErrorResponse:
+      type: object
+      properties:
+        statusCode:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: Validation failed
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+  
+  responses:
+    BadRequest:
+      description: Validation error or bad request format
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            statusCode: 400
+            message: "Validation failed"
+            errors:
+              - field: email
+                message: "must be a well-formed email address"
+  
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
