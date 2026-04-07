@@ -25,17 +25,11 @@ public class SecurityConfig {
   public static final String ADMIN = RoleMapping.ADMIN.getRealmRole();
   private final JwtAuthenticationConverter jwtAuthenticationConverter;
 
-  /**
-   * Comment: this is the placeholder for documentation.
-   */
   @Bean
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
   }
 
-  /**
-   * Comment: this is the placeholder for documentation.
-   */
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http.csrf(AbstractHttpConfigurer::disable).authorizeHttpRequests(
