@@ -13,11 +13,16 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;
 import org.springframework.retry.annotation.Retryable;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtClaimNames;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +38,8 @@ public class KeycloakAdminHelper {
   private String keycloakAdminUsername;
   @Value("${keycloak.admin.password}")
   private String keycloakAdminPassword;
+  @Value("${keycloak.principle-attribute}")
+  private String principleAttribute;
 
   @Cacheable(value = "user-id-cache", key = "#username")
   @Retryable(
@@ -104,6 +111,35 @@ public class KeycloakAdminHelper {
   public String recover(Exception e, String username) {
     log.error("All retries failed for getUserIdByUsername: {}", username, e);
     return null;
+  }
+
+  public String getCurrentEmail() {
+    Jwt jwt = getCurrentJwt();
+    return jwt != null ? jwt.getClaim("email") : null;
+  }
+
+  public String getCurrentUserId() {
+    Jwt jwt = getCurrentJwt();
+    return jwt != null ? jwt.getSubject() : "anonymous";
+  }
+
+  public String getCurrentUsername() {
+    Jwt jwt = getCurrentJwt();
+    return jwt != null ? jwt.getClaim("preferred_username") : "anonymous";
+  }
+
+  public Jwt getCurrentJwt() {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (authentication instanceof JwtAuthenticationToken token) {
+      return token.getToken();
+    }
+    return null;
+  }
+
+  private String getPrincipleClaimName(Jwt jwt) {
+    return Optional.ofNullable(principleAttribute)
+            .map(jwt::getClaim)
+            .orElse(jwt.getClaim(JwtClaimNames.SUB)).toString();
   }
 
 }

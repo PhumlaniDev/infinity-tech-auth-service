@@ -239,6 +239,7 @@
   </repositories>
 
   <build>
+    <finalName>app</finalName>
     <plugins>
       <!-- Standard JAR for deployment -->
       <plugin>

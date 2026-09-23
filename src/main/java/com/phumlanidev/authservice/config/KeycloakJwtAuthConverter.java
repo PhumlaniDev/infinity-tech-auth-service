@@ -1,6 +1,7 @@
 package com.phumlanidev.authservice.config;
 
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
@@ -15,11 +16,11 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Component
-public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationToken> {
+@Slf4j
+public class KeycloakJwtAuthConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
   @Value("${keycloak.principle-attribute}")
   private String principleAttribute;
-
   @Value("${keycloak.resource}")
   private String resourceId;
 
@@ -29,6 +30,8 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
     authorities.addAll(extractRealmRoles(jwt));
     authorities.addAll(extractResourceRoles(jwt));
     authorities.addAll(extractTopLevelRoles(jwt));
+
+    log.debug("🔐 Extracted {} authorities from token subject: {}", authorities.size(), jwt.getSubject());
 
     return new JwtAuthenticationToken(jwt, authorities, getPrincipleClaimName(jwt));
   }
@@ -41,7 +44,9 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
 
   private Collection<? extends GrantedAuthority> extractRealmRoles(Jwt jwt) {
     Map<String, Object> realmAccess = jwt.getClaim("realm_access");
-    if (realmAccess == null || realmAccess.get("roles") == null) return Set.of();
+    if (realmAccess == null || realmAccess.get("roles") == null) {
+      return Set.of();
+    }
 
     Collection<String> roles = (Collection<String>) realmAccess.get("roles");
     return roles.stream()
@@ -51,10 +56,14 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
 
   private Collection<? extends GrantedAuthority> extractResourceRoles(Jwt jwt) {
     Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
-    if (resourceAccess == null) return Set.of();
+    if (resourceAccess == null) {
+      return Set.of();
+    }
 
     Map<String, Object> client = (Map<String, Object>) resourceAccess.get(resourceId);
-    if (client == null || client.get("roles") == null) return Set.of();
+    if (client == null || client.get("roles") == null) {
+      return Set.of();
+    }
 
     Collection<String> clientRoles = (Collection<String>) client.get("roles");
     return clientRoles.stream()
@@ -64,7 +73,9 @@ public class JwtAuthConverter implements Converter<Jwt, AbstractAuthenticationTo
 
   private Collection<? extends GrantedAuthority> extractTopLevelRoles(Jwt jwt) {
     Collection<String> topRoles = jwt.getClaim("roles");
-    if (topRoles == null) return Set.of();
+    if (topRoles == null) {
+      return Set.of();
+    }
 
     return topRoles.stream()
             .map(role -> new SimpleGrantedAuthority("ROLE_" + role))

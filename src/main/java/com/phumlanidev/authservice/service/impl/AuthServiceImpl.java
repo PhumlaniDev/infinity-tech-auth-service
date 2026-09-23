@@ -1,7 +1,7 @@
 package com.phumlanidev.authservice.service.impl;
 
 
-import com.phumlanidev.authservice.config.JwtAuthenticationConverter;
+import com.phumlanidev.authservice.config.KeycloakJwtAuthConverter;
 import com.phumlanidev.authservice.dto.*;
 import com.phumlanidev.authservice.enums.RoleMapping;
 import com.phumlanidev.authservice.exception.auth.AuthenticationFailedException;
@@ -65,7 +65,7 @@ public class AuthServiceImpl implements IAuthService {
   private final AuditLogServiceImpl auditLogService;
   private final KeycloakAdminHelper keycloakAdminHelper;
   private final RestTemplate restTemplate;
-  private final JwtAuthenticationConverter jwtAuthenticationConverter;
+  private final KeycloakJwtAuthConverter keycloakJwtAuthConverter;
 
   @Value("${keycloak.auth-server-url}")
   private String keycloakServerUrl;
@@ -175,7 +175,7 @@ public class AuthServiceImpl implements IAuthService {
     PasswordResetRequestDto passwordResetDto = PasswordResetRequestDto.builder().email(email).build();
 
     try {
-      String token = jwtAuthenticationConverter.getCurrentJwt().getTokenValue();
+      String token = keycloakAdminHelper.getCurrentJwt().getTokenValue();
 
       HttpHeaders headers = new HttpHeaders();
       headers.setBearerAuth(token);
@@ -196,7 +196,7 @@ public class AuthServiceImpl implements IAuthService {
     PasswordResetRequestDto emailVerificationDto = PasswordResetRequestDto.builder().email(email).build();
 
     try {
-      String token = jwtAuthenticationConverter.getCurrentJwt().getTokenValue();
+      String token = keycloakAdminHelper.getCurrentJwt().getTokenValue();
 
       HttpHeaders headers = new HttpHeaders();
       headers.setBearerAuth(token);
@@ -308,8 +308,8 @@ public class AuthServiceImpl implements IAuthService {
 
   private void logAudit(String action, String details) {
     String clientIp = request.getRemoteAddr();
-    String username = jwtAuthenticationConverter.getCurrentUsername();
-    String userId = jwtAuthenticationConverter.getCurrentUserId();
+    String username = keycloakAdminHelper.getCurrentUsername();
+    String userId = keycloakAdminHelper.getCurrentUserId();
 
 
     auditLogService.log(

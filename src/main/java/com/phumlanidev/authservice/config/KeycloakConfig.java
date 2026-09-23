@@ -6,9 +6,11 @@ import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 /**
  * Comment: this is the placeholder for documentation.
@@ -35,15 +37,15 @@ public class KeycloakConfig {
    * Keycloak instance for admin actions.
    */
   @Bean
+  @Primary
   public Keycloak keycloak() {
     logger.info("Configuring Keycloak Admin Client...");
     return KeycloakBuilder.builder()
             .serverUrl(keycloakServerUrl)
             .realm("master")
             .clientId("admin-cli")
-            .username(keycloakClientAdminUsername)
-            .password(keycloakClientAdminPassword)
-            .grantType(OAuth2Constants.PASSWORD)
+            .clientSecret(keycloakClientSecret)
+            .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
             .build();
   }
 
@@ -51,6 +53,7 @@ public class KeycloakConfig {
    * Keycloak instance for service client actions.
    */
   @Bean
+  @Qualifier("keycloakServiceClient")
   public Keycloak keycloakServiceClient() {
     logger.info("Configuring Keycloak Service Client...");
     return KeycloakBuilder.builder()

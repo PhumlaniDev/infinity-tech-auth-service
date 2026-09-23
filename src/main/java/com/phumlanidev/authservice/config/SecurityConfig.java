@@ -9,8 +9,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 /**
@@ -23,25 +21,20 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
   public static final String ADMIN = RoleMapping.ADMIN.getRealmRole();
-  private final JwtAuthenticationConverter jwtAuthenticationConverter;
-
-  @Bean
-  public PasswordEncoder passwordEncoder() {
-    return new BCryptPasswordEncoder();
-  }
+  private final KeycloakJwtAuthConverter keycloakJwtAuthConverter;
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http.csrf(AbstractHttpConfigurer::disable).authorizeHttpRequests(
             authorize -> authorize
                 .requestMatchers("/api/v1/auth/**").permitAll()
-                .requestMatchers("/api/v1/products/**").permitAll()
-                .requestMatchers("/actuator/**").permitAll()
+//                .requestMatchers("/api/v1/products/**").permitAll()
+                .requestMatchers("/actuator/**").hasRole(ADMIN)
                     .requestMatchers("/api/v1/profile/**").authenticated()
                 .requestMatchers("/api/v1/admin/**").hasRole(ADMIN).anyRequest().authenticated()
             ).oauth2ResourceServer(
             oauth2 ->
-                oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter)))
+                oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(keycloakJwtAuthConverter)))
         .sessionManagement(
             session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));

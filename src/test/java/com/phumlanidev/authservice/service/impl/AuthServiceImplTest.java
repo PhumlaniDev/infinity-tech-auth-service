@@ -1,6 +1,6 @@
 package com.phumlanidev.authservice.service.impl;
 
-import com.phumlanidev.authservice.config.JwtAuthenticationConverter;
+import com.phumlanidev.authservice.config.KeycloakJwtAuthConverter;
 import com.phumlanidev.authservice.dto.*;
 import com.phumlanidev.authservice.exception.auth.AuthenticationFailedException;
 import com.phumlanidev.authservice.helper.KeycloakAdminHelper;
@@ -47,7 +47,7 @@ class AuthServiceImplTest {
   @Mock private AuditLogServiceImpl auditLogService;
   @Mock private KeycloakAdminHelper keycloakAdminHelper;
   @Mock private RestTemplate restTemplate;
-  @Mock private JwtAuthenticationConverter jwtAuthenticationConverter;
+  @Mock private KeycloakJwtAuthConverter jwtAuthenticationConverter;
 
   @InjectMocks
   private AuthServiceImpl authService;
@@ -62,8 +62,8 @@ class AuthServiceImplTest {
   @BeforeEach
   void setUp() {
     // Shared audit stubs — lenient so tests that don't verify audit won't fail
-    lenient().when(jwtAuthenticationConverter.getCurrentUserId()).thenReturn(USER_ID);
-    lenient().when(jwtAuthenticationConverter.getCurrentUsername()).thenReturn(USERNAME);
+    lenient().when(keycloakAdminHelper.getCurrentUserId()).thenReturn(USER_ID);
+    lenient().when(keycloakAdminHelper.getCurrentUsername()).thenReturn(USERNAME);
     lenient().when(request.getRemoteAddr()).thenReturn(CLIENT_IP);
   }
 
@@ -100,7 +100,7 @@ class AuthServiceImplTest {
       // sendEmailVerificationNotification calls getCurrentJwt — stub it
       Jwt jwt = mock(Jwt.class);
       when(jwt.getTokenValue()).thenReturn("mock-token");
-      lenient().when(jwtAuthenticationConverter.getCurrentJwt()).thenReturn(jwt);
+      lenient().when(keycloakAdminHelper.getCurrentJwt()).thenReturn(jwt);
 
       // restTemplate for email verification — swallow the call
       lenient().when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(Void.class)))
@@ -383,7 +383,7 @@ class AuthServiceImplTest {
     void stubJwt() {
       Jwt jwt = mock(Jwt.class);
       when(jwt.getTokenValue()).thenReturn("mock-token");
-      lenient().when(jwtAuthenticationConverter.getCurrentJwt()).thenReturn(jwt);
+      lenient().when(keycloakAdminHelper.getCurrentJwt()).thenReturn(jwt);
     }
 
     @Test
@@ -455,7 +455,7 @@ class AuthServiceImplTest {
     void stubJwt() {
       Jwt jwt = mock(Jwt.class);
       when(jwt.getTokenValue()).thenReturn("mock-token");
-      lenient().when(jwtAuthenticationConverter.getCurrentJwt()).thenReturn(jwt);
+      lenient().when(keycloakAdminHelper.getCurrentJwt()).thenReturn(jwt);
     }
 
     @Test

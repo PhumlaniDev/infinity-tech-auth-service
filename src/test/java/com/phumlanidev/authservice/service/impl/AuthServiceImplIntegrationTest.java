@@ -1,7 +1,7 @@
 package com.phumlanidev.authservice.service.impl;
 
 
-import com.phumlanidev.authservice.config.JwtAuthenticationConverter;
+import com.phumlanidev.authservice.config.KeycloakJwtAuthConverter;
 import com.phumlanidev.authservice.dto.AddressDto;
 import com.phumlanidev.authservice.dto.UserDto;
 import com.phumlanidev.authservice.enums.RoleMapping;
@@ -74,7 +74,7 @@ public class AuthServiceImplIntegrationTest {
   }
 
   @MockitoBean
-  private JwtAuthenticationConverter jwtAuthenticationConverter;
+  private KeycloakJwtAuthConverter jwtAuthenticationConverter;
   @MockitoBean
   private AuditLogServiceImpl auditLogService;
   @MockitoBean
@@ -119,9 +119,9 @@ public class AuthServiceImplIntegrationTest {
     userRepository.deleteAll();
     addressRepository.deleteAll();
 
-    lenient().when(jwtAuthenticationConverter.getCurrentUserId()).thenReturn(USER_ID);
-    lenient().when(jwtAuthenticationConverter.getCurrentUsername()).thenReturn(USERNAME);
-    lenient().when(jwtAuthenticationConverter.getCurrentJwt()).thenReturn(
+    lenient().when(keycloakAdminHelper.getCurrentUserId()).thenReturn(USER_ID);
+    lenient().when(keycloakAdminHelper.getCurrentUsername()).thenReturn(USERNAME);
+    lenient().when(keycloakAdminHelper.getCurrentJwt()).thenReturn(
             Jwt.withTokenValue("mock-token")
                     .header("alg", "none")
                     .claim("sub", "test-user")
