@@ -1,7 +1,6 @@
 package com.phumlanidev.authservice.service.impl;
 
 
-import com.phumlanidev.authservice.config.KeycloakJwtAuthConverter;
 import com.phumlanidev.authservice.dto.*;
 import com.phumlanidev.authservice.enums.RoleMapping;
 import com.phumlanidev.authservice.exception.auth.AuthenticationFailedException;
@@ -38,7 +37,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -56,16 +54,16 @@ public class AuthServiceImpl implements IAuthService {
 
   private static final String ENABLED_ATTRIBUTE = "enabled";
   private static final String TRUE_VALUE = "true";
+
   private final UserRepository userRepository;
   private final AddressRepository addressRepository;
-  private final PasswordEncoder passwordEncoder;
   private final UserMapper userMapper;
   private final AddressMapper addressMapper;
   private final HttpServletRequest request;
   private final AuditLogServiceImpl auditLogService;
   private final KeycloakAdminHelper keycloakAdminHelper;
   private final RestTemplate restTemplate;
-  private final KeycloakJwtAuthConverter keycloakJwtAuthConverter;
+  private final Keycloak keycloakAdminClient;
 
   @Value("${keycloak.auth-server-url}")
   private String keycloakServerUrl;
@@ -75,42 +73,44 @@ public class AuthServiceImpl implements IAuthService {
   private String keycloakClientId;
   @Value("${keycloak.credentials.secret}")
   private String keycloakClientSecret;
-  @Value("${keycloak.admin.username}")
-  private String keycloakAdminUsername;
-  @Value("${keycloak.admin.password}")
-  private String keycloakAdminPassword;
   @Value("${keycloak.logout_uri}")
   private String logoutUri;
 
+  private static final String NOTIFICATION_SERVICE =
+          "http://notification-service";
+
   @Override
   public void registerUser(UserDto userDto) {
-    String rawPassword = userDto.getPassword();
-    userDto.setPassword(passwordEncoder.encode(rawPassword));
+    log.info("Registering user: {}", userDto.getUsername());
+
+    registerKeycloakUser(userDto, userDto.getPassword());
 
     User user = userMapper.toEntity(userDto, new User());
     Address address = addressMapper.toEntity(userDto.getAddress(), new Address());
-
     Address savedAddress = addressRepository.save(address);
     user.setAddress(savedAddress);
     userRepository.save(user);
 
+
     logAudit("USER_REGISTRATION",
             "User registered successfully: " + userDto.getUsername());
 
-    registerKeycloakUser(userDto, rawPassword);
-
     sendEmailVerificationNotification(userDto.getEmail());
-
   }
 
   @Override
   public JwtResponseDto login(LoginDto loginDto) {
     String userId = keycloakAdminHelper.getUserIdByUsername(loginDto.getUsername());
 
-    try (Keycloak keycloakClient = KeycloakBuilder.builder().serverUrl(keycloakServerUrl)
-            .realm(keycloakRealm).clientId(keycloakClientId).clientSecret(keycloakClientSecret)
-            .grantType(OAuth2Constants.PASSWORD).username(loginDto.getUsername())
-            .password(loginDto.getPassword()).build()) {
+    try (Keycloak keycloakClient = KeycloakBuilder.builder()
+            .serverUrl(keycloakServerUrl)
+            .realm(keycloakRealm)
+            .clientId(keycloakClientId)
+            .clientSecret(keycloakClientSecret)
+            .grantType(OAuth2Constants.PASSWORD)
+            .username(loginDto.getUsername())
+            .password(loginDto.getPassword())
+            .build()) {
 
       AccessTokenResponse tokenResponse = keycloakClient.tokenManager().grantToken();
 
@@ -153,16 +153,21 @@ public class AuthServiceImpl implements IAuthService {
     String username = auth != null ? auth.getName() : "anonymous";
 
     try {
-      ResponseEntity<String> response = restTemplate.postForEntity(logoutUri, entity, String.class);
+      ResponseEntity<String> response =
+              restTemplate.postForEntity(logoutUri, entity, String.class);
+
       if (response.getStatusCode().is2xxSuccessful()) {
-        log.info("Logout successful for refresh token: {}", refreshToken.getRefreshToken());
+        log.info("Logout successful for user: {}", username);
         logAudit("LOGOUT_SUCCESS",
                 "User: " + username + " logged out successfully");
       } else {
-        log.error("Logout failed with response: {}", response.getBody());
+        log.error("Keycloak logout return non-2xx: {}", response.getStatusCode());
         logAudit("LOGOUT_FAIL",
                 "Logout failed for user: " + username);
+        throw new RuntimeException("Logout failed with status: " + response.getStatusCode());
       }
+    } catch (RuntimeException e){
+      throw e;
     } catch (Exception e) {
       log.error("Exception occurred during logout: {}", e.getMessage(), e);
       throw new RuntimeException("Logout failed due to an exception", e);
@@ -171,18 +176,17 @@ public class AuthServiceImpl implements IAuthService {
 
   @Override
   public void sendPasswordResetNotification(String email) {
-    String url = "http://localhost:9500/api/v1/notifications/password-reset";
-    PasswordResetRequestDto passwordResetDto = PasswordResetRequestDto.builder().email(email).build();
-
-    try {
-      String token = keycloakAdminHelper.getCurrentJwt().getTokenValue();
+    String url = NOTIFICATION_SERVICE + "/api/v1/notifications/password-reset";
+    PasswordResetRequestDto passwordResetDto = PasswordResetRequestDto.builder()
+            .email(email)
+            .build();
 
       HttpHeaders headers = new HttpHeaders();
-      headers.setBearerAuth(token);
       headers.setContentType(MediaType.APPLICATION_JSON);
-
       HttpEntity<PasswordResetRequestDto> requestDtoHttpEntity = new HttpEntity<>(passwordResetDto, headers);
 
+
+    try {
       restTemplate.postForEntity(url, requestDtoHttpEntity, Void.class);
       log.info("Password reset notification sent to {}", email);
     } catch (Exception e) {
@@ -192,18 +196,19 @@ public class AuthServiceImpl implements IAuthService {
 
   @Override
   public void sendEmailVerificationNotification(String email) {
-    String url = "http://localhost:9500/api/v1/notifications/email-verification";
-    PasswordResetRequestDto emailVerificationDto = PasswordResetRequestDto.builder().email(email).build();
+    log.info("Sending email verification notification to {}", email);
 
-    try {
-      String token = keycloakAdminHelper.getCurrentJwt().getTokenValue();
+    String url = NOTIFICATION_SERVICE + "/api/v1/notifications/email-verification";
+    EmailVerificationRequestDto dto = EmailVerificationRequestDto.builder()
+            .email(email)
+            .build();
 
       HttpHeaders headers = new HttpHeaders();
-      headers.setBearerAuth(token);
       headers.setContentType(MediaType.APPLICATION_JSON);
 
-      HttpEntity<PasswordResetRequestDto> requestDtoHttpEntity = new HttpEntity<>(emailVerificationDto, headers);
+      HttpEntity<EmailVerificationRequestDto> requestDtoHttpEntity = new HttpEntity<>(dto, headers);
 
+    try {
       restTemplate.postForEntity(url, requestDtoHttpEntity, Void.class);
       log.info("Email verification notification sent to {}", email);
     } catch (Exception e) {
@@ -212,33 +217,33 @@ public class AuthServiceImpl implements IAuthService {
   }
 
   private void registerKeycloakUser(UserDto userDto, String rawPassword) {
-    try {
-      try (Keycloak adminClient = KeycloakBuilder.builder()
-          .serverUrl(keycloakServerUrl)
-          .realm("master")
-          .clientId("admin-cli")
-              .username(keycloakAdminUsername)
-              .password(keycloakAdminPassword)
-          .grantType(OAuth2Constants.PASSWORD)
-          .build()) {
-        RealmResource realmResource = adminClient.realm(keycloakRealm);
+      try  {
+        RealmResource realmResource = keycloakAdminClient.realm(keycloakRealm);
         UsersResource usersResource = realmResource.users();
-        UserRepresentation keycloakUser = createUserRepresentation(userDto, rawPassword);
+        UserRepresentation keycloakUser =
+                createUserRepresentation(userDto, rawPassword);
 
-        createAndAssignKeycloakUser(usersResource, realmResource, keycloakUser, userDto);
+        createAndAssignKeycloakUser(usersResource, realmResource,
+                keycloakUser, userDto);
+
         logAudit("USER_CREATION_SUCCESS",
                 "User created successfully in Keycloak: " + userDto.getUsername());
-      }
-    } catch (Exception e) {
+
+      } catch (KeycloakCommunicationException e){
+        throw e;
+      } catch (Exception e) {
       log.error("Exception occurred while creating user {} in Keycloak: {}", userDto.getUsername(),
           e.getMessage(), e);
       logAudit("USER_CREATION_FAIL",
               "Failed to create user in Keycloak: " + userDto.getUsername() + ", Error: " + e.getMessage());
+      throw new KeycloakCommunicationException("Failed to create user in Keycloak: " + e.getMessage());
     }
   }
 
-  private void createAndAssignKeycloakUser(UsersResource usersResource, RealmResource realmResource,
-                                           UserRepresentation keycloakUser, UserDto userDto) {
+  private void createAndAssignKeycloakUser(UsersResource usersResource,
+                                           RealmResource realmResource,
+                                           UserRepresentation keycloakUser,
+                                           UserDto userDto) {
     try (Response response = usersResource.create(keycloakUser)) { // Try-with-resources
       if (response.getStatus() == Response.Status.CREATED.getStatusCode()) {
         log.info("Keycloak user created successfully for username: {}", userDto.getUsername());
@@ -250,12 +255,17 @@ public class AuthServiceImpl implements IAuthService {
 
         assignRealmRole(userResource, realmResource, roleMapping.getRealmRole());
         assignClientRole(userResource, realmResource, roleMapping.getClientRole());
+        log.info("Roles assigned successfully for Keycloak user: {}", userDto.getUsername());
+      } else if (response.getStatus() == Response.Status.CONFLICT.getStatusCode()) {
+        log.error("Keycloak user creation failed: User already exists for username: {}", userDto.getUsername());
+        throw new KeycloakCommunicationException("Keycloak user already exists");
       } else {
         log.error("Failed to create Keycloak user: {}", response.getStatusInfo().toString());
         throw new KeycloakCommunicationException("Keycloak user creation failed");
       }
     } catch (NotAuthorizedException e) {
       log.error("Authorization failed during user creation: {}", e.getMessage());
+      throw new KeycloakCommunicationException("Authorization failed during user creation");
     }
   }
 
@@ -265,21 +275,22 @@ public class AuthServiceImpl implements IAuthService {
   }
 
   private UserRepresentation createUserRepresentation(UserDto userDto, String rawPassword) {
-    UserRepresentation userRepresentation = new UserRepresentation();
-    userRepresentation.setUsername(userDto.getUsername());
-    userRepresentation.setEmail(userDto.getEmail());
-    userRepresentation.setFirstName(userDto.getFirstName());
-    userRepresentation.setLastName(userDto.getLastName());
-    userRepresentation.singleAttribute(ENABLED_ATTRIBUTE, TRUE_VALUE);
-    userRepresentation.setEnabled(true);
+    UserRepresentation user = new UserRepresentation();
+    user.setUsername(userDto.getUsername());
+    user.setEmail(userDto.getEmail());
+    user.setFirstName(userDto.getFirstName());
+    user.setLastName(userDto.getLastName());
+    user.singleAttribute(ENABLED_ATTRIBUTE, TRUE_VALUE);
+    user.setEnabled(true);
 
     CredentialRepresentation credential = new CredentialRepresentation();
     credential.setTemporary(false);
     credential.setType(CredentialRepresentation.PASSWORD);
     credential.setValue(rawPassword);
-    userRepresentation.setCredentials(Collections.singletonList(credential));
+    user.setCredentials(Collections.singletonList(credential));
     log.info("Password set for user ID {} in Keycloak", userDto.getUsername());
-    return userRepresentation;
+
+    return user;
   }
 
   private void assignRealmRole(UserResource userResource, RealmResource realmResource,
@@ -291,18 +302,17 @@ public class AuthServiceImpl implements IAuthService {
   private void assignClientRole(UserResource userResource, RealmResource realmResource,
                                 String clientRoleName) {
 
-    List<ClientRepresentation> clients = realmResource.clients().findByClientId(keycloakClientId);
+    List<ClientRepresentation> clients = realmResource.clients()
+            .findByClientId(keycloakClientId);
     if (clients.isEmpty()) {
       log.error("Client with ID {} not found in Keycloak", keycloakClientId);
       throw new KeycloakCommunicationException("Client not found");
     }
 
     String clientUuid = clients.getFirst().getId();
-
     ClientResource clientResource = realmResource.clients().get(clientUuid);
-
-    RoleRepresentation clientRole = clientResource.roles().get(clientRoleName).toRepresentation();
-
+    RoleRepresentation clientRole = clientResource.roles()
+            .get(clientRoleName).toRepresentation();
     userResource.roles().clientLevel(clientUuid).add(Collections.singletonList(clientRole));
   }
 
@@ -310,14 +320,6 @@ public class AuthServiceImpl implements IAuthService {
     String clientIp = request.getRemoteAddr();
     String username = keycloakAdminHelper.getCurrentUsername();
     String userId = keycloakAdminHelper.getCurrentUserId();
-
-
-    auditLogService.log(
-            action,
-            userId,
-            username,
-            clientIp,
-            details
-    );
+    auditLogService.log(action, userId, username, clientIp, details);
   }
 }

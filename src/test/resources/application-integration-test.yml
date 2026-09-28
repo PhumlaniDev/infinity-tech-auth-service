@@ -2,6 +2,14 @@ spring:
   cloud:
     config:
       enabled: false
+      import-check:
+        enabled: false
+
+  datasource:
+#    url: jdbc:tc:postgresql:16-alpine:///auth_test_db   # Testcontainers JDBC URL
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
       
   jpa:
     hibernate:
@@ -16,21 +24,22 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost/disable
+          issuer-uri: http://localhost:9999/realms/ecommerce
+          jwk-set-uri: http://localhost:9999/realms/ecommerce/protocol/openid-connect/cert
   
   cache:
     type: none
 
 keycloak:
-  auth-server-url: http://localhost:8080
-  realm: test-realm
-  resource: auth-service
+  auth-server-url: http://localhost:9999
+  realm: ecommerce
+  resource: auth-service-client
   credentials:
-    secret: test_secret
+    secret: test-client-secret
   admin:
-    username: test-admin
-    password: test-admin
-  logout_uri: http://localhost:8080/realms/test-realm/protocol/openid-connect/logout
+    client-id: auth-service-admin
+    client-secret: test-admin-client-secret
+  logout_uri: http://localhost:9999/realms/ecommerce/protocol/openid-connect/logout
   principle-attribute: preferred_username
 
 eureka:
@@ -38,8 +47,12 @@ eureka:
     enabled: false
     register-with-eureka: false
     fetch-registry: false
-logging:
-  level:
-    com.phumlanidev.authservice: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.testcontainers: WARN
+
+spring.cloud.config.enabled: false
+spring.cloud.config.import-check.enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

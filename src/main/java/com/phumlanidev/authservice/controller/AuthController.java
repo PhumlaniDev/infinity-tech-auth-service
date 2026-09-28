@@ -3,6 +3,7 @@ package com.phumlanidev.authservice.controller;
 
 import com.phumlanidev.authservice.constant.Constant;
 import com.phumlanidev.authservice.dto.*;
+import com.phumlanidev.authservice.service.IAuthService;
 import com.phumlanidev.authservice.service.impl.AuthServiceImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,12 +20,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
 
-  private final AuthServiceImpl authServiceImpl;
+  private final IAuthService authService;
 
 
   @PostMapping("/register")
   public ResponseEntity<ResponseDto> register(@Valid @RequestBody UserDto userDto) {
-    authServiceImpl.registerUser(userDto);
+    authService.registerUser(userDto);
     return ResponseEntity
             .status(HttpStatus.CREATED)
             .body(new ResponseDto(Constant.STATUS_CODE_CREATED,
@@ -34,16 +35,14 @@ public class AuthController {
 
   @PostMapping("/login")
   public ResponseEntity<JwtResponseDto> login(@Valid @RequestBody LoginDto loginDto) {
-    String accessToken = authServiceImpl.login(loginDto).getAccessToken();
-    String refreshToken = authServiceImpl.login(loginDto).getRefreshToken();
-    Long expiresIn = authServiceImpl.login(loginDto).getExpiresIn();
-    return ResponseEntity.ok(new JwtResponseDto(accessToken, refreshToken, expiresIn));
+    JwtResponseDto jwtResponse = authService.login(loginDto);
+    return ResponseEntity.ok(jwtResponse);
   }
 
 
   @PostMapping("/logout")
   public ResponseEntity<ResponseDto> logout(@Valid @RequestBody TokenLogoutRequest refreshToken) {
-    authServiceImpl.logout(refreshToken);
+    authService.logout(refreshToken);
     return ResponseEntity
             .status(HttpStatus.OK)
             .body(new ResponseDto(Constant.STATUS_CODE_OK,
@@ -52,17 +51,17 @@ public class AuthController {
 
 
   @PostMapping("/reset-password")
-  public ResponseEntity<ResponseDto> resetPassword(@Valid @RequestBody String email) {
-    authServiceImpl.sendPasswordResetNotification(email);
+  public ResponseEntity<ResponseDto> resetPassword(@Valid @RequestBody PasswordResetRequestDto dto) {
+    authService.sendPasswordResetNotification(dto.getEmail());
     return ResponseEntity
             .status(HttpStatus.OK)
             .body(new ResponseDto(Constant.STATUS_CODE_OK,
                     "Reset password email sent successfully."));
   }
 
-  @PostMapping
-  public ResponseEntity<ResponseDto> verifyEmail(@Valid @RequestBody String email) {
-    authServiceImpl.sendEmailVerificationNotification(email);
+  @PostMapping("/verify-email")
+  public ResponseEntity<ResponseDto> verifyEmail(@Valid @RequestBody EmailVerificationRequestDto dto) {
+    authService.sendEmailVerificationNotification(dto.getEmail());
     return ResponseEntity
             .status(HttpStatus.OK)
             .body(new ResponseDto(Constant.STATUS_CODE_OK,

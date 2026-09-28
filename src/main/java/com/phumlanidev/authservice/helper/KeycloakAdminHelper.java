@@ -34,17 +34,17 @@ public class KeycloakAdminHelper {
   private String keycloakServerUrl;
   @Value("${keycloak.realm}")
   private String keycloakRealm;
-  @Value("${keycloak.admin.username}")
-  private String keycloakAdminUsername;
-  @Value("${keycloak.admin.password}")
-  private String keycloakAdminPassword;
+  // auth-service-admin client (admin actions)
+  @Value("${keycloak.admin.client-id}")
+  private String keycloakAdminClientId;
+  @Value("${keycloak.admin.client-secret}")
+  private String keycloakAdminClientSecret;
   @Value("${keycloak.principle-attribute}")
   private String principleAttribute;
 
   @Cacheable(value = "user-id-cache", key = "#username")
   @Retryable(
           retryFor = {Exception.class},
-          maxAttempts = 3,
           backoff = @Backoff(delay = 2000, multiplier = 2)
   )
   public String getUserIdByUsername(String username) {
@@ -67,7 +67,6 @@ public class KeycloakAdminHelper {
 
   @Retryable(
           retryFor = {Exception.class},
-          maxAttempts = 3,
           backoff = @Backoff(delay = 2000, multiplier = 2)
   )
   public UserRepresentation getUserById(String userId) {
@@ -83,10 +82,9 @@ public class KeycloakAdminHelper {
     return KeycloakBuilder.builder()
             .serverUrl(keycloakServerUrl)
             .realm("master")
-            .username(keycloakAdminUsername)
-            .password(keycloakAdminPassword)
-            .clientId("admin-cli")
-            .grantType(OAuth2Constants.PASSWORD)
+            .clientId(keycloakAdminClientId)
+            .clientSecret(keycloakAdminClientSecret)
+            .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
             .build();
   }
 

@@ -3,6 +3,7 @@ package com.phumlanidev.authservice.service.impl;
 import com.phumlanidev.authservice.dto.UserDto;
 import com.phumlanidev.authservice.dto.UserSummaryDto;
 import com.phumlanidev.authservice.service.IAdminService;
+import com.phumlanidev.authservice.service.IAuthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.keycloak.admin.client.Keycloak;
@@ -22,7 +23,7 @@ import java.util.stream.Collectors;
 public class AdminServiceImpl implements IAdminService {
 
     private final Keycloak keycloak;
-    private final AuthServiceImpl authService;
+    private final IAuthService authService;
 
     @Value("${keycloak.realm}")
     private String realm;

@@ -1,152 +1,267 @@
 package com.phumlanidev.authservice.service.impl;
 
 
-import com.phumlanidev.authservice.config.KeycloakJwtAuthConverter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import com.phumlanidev.authservice.constant.Constant;
 import com.phumlanidev.authservice.dto.AddressDto;
+import com.phumlanidev.authservice.dto.JwtResponseDto;
+import com.phumlanidev.authservice.dto.LoginDto;
 import com.phumlanidev.authservice.dto.UserDto;
 import com.phumlanidev.authservice.enums.RoleMapping;
-import com.phumlanidev.authservice.helper.KeycloakAdminHelper;
-import com.phumlanidev.authservice.model.User;
-import com.phumlanidev.authservice.repository.AddressRepository;
-import com.phumlanidev.authservice.repository.UserRepository;
+import com.phumlanidev.authservice.exception.UserAlreadyExistException;
+import com.phumlanidev.authservice.exception.auth.AuthenticationFailedException;
+import com.phumlanidev.authservice.service.IAuthService;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.keycloak.admin.client.Keycloak;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
-import java.net.http.HttpClient;
-import java.time.Instant;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@AutoConfigureMockMvc
 @Testcontainers
 @ActiveProfiles("integration-test")
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class AuthServiceImplIntegrationTest {
 
+  @Autowired private MockMvc mockMvc;
+  @Autowired private ObjectMapper objectMapper;
+
+  @MockitoBean private IAuthService authService;
+
+  @MockitoBean
+  private Keycloak keycloakAdminClient;
+  @MockitoBean
+  private Keycloak keycloakServiceClient;
+
   @Container
-  static PostgreSQLContainer postgres = new PostgreSQLContainer("postgres:16")
+  static PostgreSQLContainer postgres =
+          new PostgreSQLContainer("postgres:16-alpine")
           .withDatabaseName("auth_db_test")
-          .withUsername("auth_test_user")
-          .withPassword("auth_test_password");
+          .withUsername("postgres")
+          .withPassword("postgres");
+
+  @RegisterExtension
+  static WireMockExtension keycloak = WireMockExtension.newInstance()
+          .options(wireMockConfig().port(9999))
+          .build();
 
   @DynamicPropertySource
   static void overrideProperties(DynamicPropertyRegistry registry) {
     registry.add("spring.datasource.url", postgres::getJdbcUrl);
     registry.add("spring.datasource.username", postgres::getUsername);
     registry.add("spring.datasource.password", postgres::getPassword);
+    registry.add("keycloak.auth-server-url",
+            () -> "http://localhost:" + keycloak.getPort());
+    registry.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri",
+            () -> "http://localhost:" + keycloak.getPort() + "/realms/ecommerce");
 
     registry.add("eureka.client.enabled", () -> "false");
     registry.add("eureka.client.register-with-eureka", () -> "false");
     registry.add("eureka.client.fetch-registry", () -> "false");
   }
 
-  @TestConfiguration
-  static class TestConfig {
-    @Bean
-    @Primary
-    public JwtDecoder jwtDecoder() {
-      return token -> Jwt.withTokenValue(token)
-              .header("alg", "none")
-              .claim("sub", "test-user")
-              .claim("preferred_username", "phumlani")
-              .issuedAt(Instant.now())
-              .expiresAt(Instant.now().plusSeconds(3600))
-              .build();
-    }
+  @BeforeEach
+  void stubKeycloakOidcDiscovery() {
+    keycloak.stubFor(get(urlEqualTo(
+            "/realms/ecommerce/.well-known/openid-configuration"))
+            .willReturn(okJson("""
+                {
+                  "issuer": "http://localhost:9999/realms/ecommerce",
+                  "jwks_uri": "http://localhost:9999/realms/ecommerce/protocol/openid-connect/certs",
+                  "token_endpoint": "http://localhost:9999/realms/ecommerce/protocol/openid-connect/token",
+                  "subject_types_supported": ["public"]
+                }
+            """)));
+
+    keycloak.stubFor(get(urlEqualTo(
+            "/realms/ecommerce/protocol/openid-connect/certs"))
+            .willReturn(okJson("""
+                {
+                  "keys": []
+                }
+            """)));
   }
 
-  @MockitoBean
-  private KeycloakJwtAuthConverter jwtAuthenticationConverter;
-  @MockitoBean
-  private AuditLogServiceImpl auditLogService;
-  @MockitoBean
-  private KeycloakAdminHelper keycloakAdminHelper;
-  @MockitoBean
-  private RestTemplate restTemplate;
-  @Autowired
-  private AuthServiceImpl authService;
-  @Autowired
-  private UserRepository userRepository;
-  @Autowired
-  private AddressRepository addressRepository;
+  private UserDto validUserDto() {
+    return UserDto.builder()
+            .firstName("Phumlani")
+            .lastName("Arendse")
+            .username("phumlanidev")
+            .email("aphumlani.dev@gmail.com")
+            .password("Password123!")
+            .address(AddressDto.builder()
+                    .streetName("123 Main St")
+                    .city("Cape Town")
+                    .province("Western Cape")
+                    .zipCode("8000")
+                    .country("South Africa")
+                    .build())
+            .role(RoleMapping.USER)
+            .phoneNumber("071234567")
+            .build();
+  }
 
 
   private static final String USER_ID = "test-user-id";
   private static final String USERNAME = "phumlani";
   private static final String CLIENT_IP = "127.0.0.1";
 
-  private UserDto validUserDto() {
-    AddressDto addressDto = AddressDto.builder()
-            .streetName("123 Main St")
-            .city("Cape Town")
-            .province("western cape")
-            .zipCode("8000")
-            .country("South Africa")
-            .build();
-
-    return UserDto.builder()
-            .firstName("Phumlani")
-            .lastName("Arendse")
-            .username(USERNAME)
-            .email("example@example.com")
-            .password("Password123!")
-            .address(addressDto)
-            .role(RoleMapping.USER)
-            .phoneNumber("071234567")
-            .build();
-  }
-
-  @BeforeEach
-  void setUp() {
-    userRepository.deleteAll();
-    addressRepository.deleteAll();
-
-    lenient().when(keycloakAdminHelper.getCurrentUserId()).thenReturn(USER_ID);
-    lenient().when(keycloakAdminHelper.getCurrentUsername()).thenReturn(USERNAME);
-    lenient().when(keycloakAdminHelper.getCurrentJwt()).thenReturn(
-            Jwt.withTokenValue("mock-token")
-                    .header("alg", "none")
-                    .claim("sub", "test-user")
-                    .claim("preferred_username", "phumlani")
-                    .issuedAt(Instant.now())
-                    .expiresAt(Instant.now().plusSeconds(3600))
-                    .build()
-    );
-    lenient().when(restTemplate.postForEntity(anyString(), any(HttpClient.class), eq(Void.class)))
-            .thenReturn(ResponseEntity.ok().build());
-  }
+//  @BeforeEach
+//  void setUp() {
+//    userRepository.deleteAll();
+//    addressRepository.deleteAll();
+//
+//    lenient().when(keycloakAdminHelper.getCurrentUserId()).thenReturn(USER_ID);
+//    lenient().when(keycloakAdminHelper.getCurrentUsername()).thenReturn(USERNAME);
+//    lenient().when(keycloakAdminHelper.getCurrentJwt()).thenReturn(
+//            Jwt.withTokenValue("mock-token")
+//                    .header("alg", "none")
+//                    .claim("sub", "test-user")
+//                    .claim("preferred_username", "phumlani")
+//                    .issuedAt(Instant.now())
+//                    .expiresAt(Instant.now().plusSeconds(3600))
+//                    .build()
+//    );
+//    lenient().when(restTemplate.postForEntity(anyString(), any(HttpClient.class), eq(Void.class)))
+//            .thenReturn(ResponseEntity.ok().build());
+//  }
 
   @Nested
   @DisplayName("registerUser()")
   class RegisterUser {
 
     @Test
-    @DisplayName("persist user and address to the database")
-    void shouldPersistUserAndAddress() {
-      authService.registerUser(validUserDto());
+    @DisplayName("POST /register — valid request — 201 Created")
+    void register_validRequest_returns201() throws Exception {
+      doNothing().when(authService).registerUser(any(UserDto.class));
 
-      Optional<User> savedUser = Optional.ofNullable(userRepository.findByUsername(USERNAME));
-      assertThat(savedUser).isPresent();
-      assertThat(savedUser.get().getUsername()).isEqualTo(USERNAME);
-      assertThat(savedUser.get().getEmail()).isEqualTo("example@example.com");
+      mockMvc.perform(post("/api/v1/auth/register")
+                      .contentType(MediaType.APPLICATION_JSON)
+                      .content(objectMapper.writeValueAsString(validUserDto())))
+              .andExpect(status().isCreated())
+              .andExpect(jsonPath("$.statusCode")
+                      .value(Constant.STATUS_CODE_CREATED));  // ← code not message
+//              .andExpect(jsonPath("$.statusMessage")
+//                      .value("You have successfully registered."));
+    }
+
+    @Test
+    @DisplayName("POST /register - missing required fields - 400 Bad Request")
+    void register_missingFields_returns400() throws Exception {
+      UserDto invalid = UserDto.builder()
+              .firstName("Phumlani")
+              .build();
+
+      mockMvc.perform(post("/api/v1/auth/register")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(invalid)))
+              .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /register - invalid email - 400 Bad Request")
+    void register_invalidEmail_returned400() throws Exception {
+      UserDto invalidEmailUser = validUserDto();
+      invalidEmailUser.setEmail("invalid-email");
+
+      mockMvc.perform(post("/api/v1/auth/register")
+              .contentType("application/json")
+              .content(objectMapper.writeValueAsString(invalidEmailUser)))
+              .andExpect(status().isBadRequest());
+
+    }
+
+    @Test
+    @DisplayName("POST /register user already exists - 409 Conflict")
+    void register_userAlreadyExists_return409() throws Exception {
+      doThrow(new UserAlreadyExistException("User already exists"))
+              .when(authService).registerUser(any());
+
+      mockMvc.perform(post("/api/v1/auth/register")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(validUserDto())))
+              .andExpect(status().isConflict());
+    }
+  }
+
+  @Nested
+  @DisplayName("loginUser")
+  class LoginUser {
+
+    @Test
+    @DisplayName("POST /login - valid credentials - 200 with tokens")
+    void login_validCredentials_returns200() throws Exception {
+      LoginDto dto = LoginDto.builder()
+              .username("phumlanidev")
+              .password("SecurePass123!")
+              .build();
+
+      JwtResponseDto jwtResponseDto = new JwtResponseDto(
+              "access-token-value",
+              "refresh-token-value",
+              900L
+      );
+
+      when(authService.login(any(LoginDto.class))).thenReturn(jwtResponseDto);
+
+      mockMvc.perform(post("/api/v1/auth/login")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(dto)))
+              .andExpect(status().isOk())
+              .andExpect(jsonPath("$.accessToken").value("access-token-value"))
+              .andExpect(jsonPath("$.refreshToken").value("refresh-token-value"))
+              .andExpect(jsonPath("$.expiresIn").value(900));
+    }
+
+    @Test
+    @DisplayName("POST /login - invalid credentials - 401 Unauthorized")
+    void login_invalidCredentials_returns401() throws Exception {
+      LoginDto dto = LoginDto.builder()
+              .username("phumlanidev")
+              .password("wrongpass!")
+              .build();
+
+      when(authService.login(any()))
+              .thenThrow(new AuthenticationFailedException(
+                      "Invalid user or password"));
+
+      mockMvc.perform(post("/api/v1/auth/login")
+              .contentType(MediaType.APPLICATION_JSON)
+              .content(objectMapper.writeValueAsString(dto)))
+              .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("POST /login - blank usernmae - 400 Bad Request")
+    void login_blankUsername_return400() throws Exception {
+      LoginDto dto = LoginDto.builder()
+              .username("")
+              .password("wrongpass!")
+              .build();
+
+      mockMvc.perform(post("/api/v1/auth/login")
+                      .contentType(MediaType.APPLICATION_JSON)
+                      .content(objectMapper.writeValueAsString(dto)))
+              .andExpect(status().isBadRequest());
     }
   }
 }

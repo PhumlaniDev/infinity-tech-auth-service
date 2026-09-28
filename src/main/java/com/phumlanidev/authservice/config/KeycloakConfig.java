@@ -22,16 +22,23 @@ public class KeycloakConfig {
 
   @Value("${keycloak.auth-server-url}")
   private String keycloakServerUrl;
+
   @Value("${keycloak.realm}")
   private String keycloakRealm;
+
+  // auth-service client (service-to-service)
   @Value("${keycloak.resource}")
   private String keycloakClientId;
+
   @Value("${keycloak.credentials.secret}")
   private String keycloakClientSecret;
-  @Value("${keycloak.admin.username}")
-  private String keycloakClientAdminUsername;
-  @Value("${keycloak.admin.password}")
-  private String keycloakClientAdminPassword;
+
+  // auth-service-admin client (admin actions)
+  @Value("${keycloak.admin.client-id}")
+  private String keycloakAdminClientId;
+
+  @Value("${keycloak.admin.client-secret}")
+  private String keycloakAdminClientSecret;
 
   /**
    * Keycloak instance for admin actions.
@@ -43,8 +50,8 @@ public class KeycloakConfig {
     return KeycloakBuilder.builder()
             .serverUrl(keycloakServerUrl)
             .realm("master")
-            .clientId("admin-cli")
-            .clientSecret(keycloakClientSecret)
+            .clientId(keycloakAdminClientId)
+            .clientSecret(keycloakAdminClientSecret)
             .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
             .build();
   }
