@@ -2,7 +2,7 @@ package com.phumlanidev.authservice.controller;
 
 import com.phumlanidev.authservice.dto.AuditLogDto;
 import com.phumlanidev.authservice.dto.UserSummaryDto;
-import com.phumlanidev.authservice.service.impl.AdminServiceImpl;
+import com.phumlanidev.authservice.service.IAdminService;
 import com.phumlanidev.authservice.service.impl.AuditLogServiceImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +28,7 @@ import java.util.List;
 @PreAuthorize("hasRole('admin')")
 public class AdminController {
 
-  private final AdminServiceImpl adminService;
+  private final IAdminService adminService;
   private final AuditLogServiceImpl auditLogService;
 
   @GetMapping("/users")

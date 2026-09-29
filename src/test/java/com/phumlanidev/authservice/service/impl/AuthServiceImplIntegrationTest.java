@@ -3,6 +3,7 @@ package com.phumlanidev.authservice.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import com.phumlanidev.authservice.config.TestSecurityConfig;
 import com.phumlanidev.authservice.constant.Constant;
 import com.phumlanidev.authservice.dto.AddressDto;
 import com.phumlanidev.authservice.dto.JwtResponseDto;
@@ -11,6 +12,7 @@ import com.phumlanidev.authservice.dto.UserDto;
 import com.phumlanidev.authservice.enums.RoleMapping;
 import com.phumlanidev.authservice.exception.UserAlreadyExistException;
 import com.phumlanidev.authservice.exception.auth.AuthenticationFailedException;
+import com.phumlanidev.authservice.helper.KeycloakAdminHelper;
 import com.phumlanidev.authservice.service.IAuthService;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -18,12 +20,14 @@ import org.keycloak.admin.client.Keycloak;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.client.RestTemplate;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -40,6 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Testcontainers
 @ActiveProfiles("integration-test")
+@Import(TestSecurityConfig.class)
 public class AuthServiceImplIntegrationTest {
 
   @Autowired private MockMvc mockMvc;
@@ -51,6 +56,12 @@ public class AuthServiceImplIntegrationTest {
   private Keycloak keycloakAdminClient;
   @MockitoBean
   private Keycloak keycloakServiceClient;
+
+  @MockitoBean
+  private RestTemplate restTemplate;
+
+  @MockitoBean
+  private KeycloakAdminHelper keycloakAdminHelper;
 
   @Container
   static PostgreSQLContainer postgres =
@@ -79,27 +90,27 @@ public class AuthServiceImplIntegrationTest {
     registry.add("eureka.client.fetch-registry", () -> "false");
   }
 
-  @BeforeEach
-  void stubKeycloakOidcDiscovery() {
-    keycloak.stubFor(get(urlEqualTo(
-            "/realms/ecommerce/.well-known/openid-configuration"))
-            .willReturn(okJson("""
-                {
-                  "issuer": "http://localhost:9999/realms/ecommerce",
-                  "jwks_uri": "http://localhost:9999/realms/ecommerce/protocol/openid-connect/certs",
-                  "token_endpoint": "http://localhost:9999/realms/ecommerce/protocol/openid-connect/token",
-                  "subject_types_supported": ["public"]
-                }
-            """)));
-
-    keycloak.stubFor(get(urlEqualTo(
-            "/realms/ecommerce/protocol/openid-connect/certs"))
-            .willReturn(okJson("""
-                {
-                  "keys": []
-                }
-            """)));
-  }
+//  @BeforeEach
+//  void stubKeycloakOidcDiscovery() {
+//    keycloak.stubFor(get(urlEqualTo(
+//            "/realms/ecommerce/.well-known/openid-configuration"))
+//            .willReturn(okJson("""
+//                {
+//                  "issuer": "http://localhost:9999/realms/ecommerce",
+//                  "jwks_uri": "http://localhost:9999/realms/ecommerce/protocol/openid-connect/certs",
+//                  "token_endpoint": "http://localhost:9999/realms/ecommerce/protocol/openid-connect/token",
+//                  "subject_types_supported": ["public"]
+//                }
+//            """)));
+//
+//    keycloak.stubFor(get(urlEqualTo(
+//            "/realms/ecommerce/protocol/openid-connect/certs"))
+//            .willReturn(okJson("""
+//                {
+//                  "keys": []
+//                }
+//            """)));
+//  }
 
   private UserDto validUserDto() {
     return UserDto.builder()
