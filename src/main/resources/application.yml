@@ -3,8 +3,3 @@ spring:
     active: docker,dev
   application:
     name: auth-service
-  config:
-    import: configserver:${CONFIG_SERVER_URI:http://localhost:8888}
-logging:
-  level:
-    org.springframework.cloud: DEBUG
