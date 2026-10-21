@@ -256,27 +256,27 @@
       </plugin>
 
       <!-- Fat jar for local run -->
-      <plugin>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>repackage</id>
-            <phase>package</phase> <!-- Only runs when packaging -->
-            <goals>
-              <goal>repackage</goal>
-            </goals>
-            <configuration>
-              <classifier>exec</classifier> <!-- Fat jar gets "-exec" suffix -->
-              <excludeDevtools>false</excludeDevtools>
-            </configuration>
-          </execution>
-        </executions>
-        <configuration>
-          <!-- Ensure fat jar is NOT attached to deploy -->
-          <attach>false</attach>
-        </configuration>
-      </plugin>
+<!--      <plugin>-->
+<!--        <groupId>org.springframework.boot</groupId>-->
+<!--        <artifactId>spring-boot-maven-plugin</artifactId>-->
+<!--        <executions>-->
+<!--          <execution>-->
+<!--            <id>repackage</id>-->
+<!--            <phase>package</phase> &lt;!&ndash; Only runs when packaging &ndash;&gt;-->
+<!--            <goals>-->
+<!--              <goal>repackage</goal>-->
+<!--            </goals>-->
+<!--            <configuration>-->
+<!--              <classifier>exec</classifier> &lt;!&ndash; Fat jar gets "-exec" suffix &ndash;&gt;-->
+<!--              <excludeDevtools>false</excludeDevtools>-->
+<!--            </configuration>-->
+<!--          </execution>-->
+<!--        </executions>-->
+<!--        <configuration>-->
+<!--          &lt;!&ndash; Ensure fat jar is NOT attached to deploy &ndash;&gt;-->
+<!--          <attach>false</attach>-->
+<!--        </configuration>-->
+<!--      </plugin>-->
 
       <!-- Checkstyle Plugin -->
       <plugin>

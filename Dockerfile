@@ -40,8 +40,8 @@ ENTRYPOINT ["java", "-jar", "app.jar"]
 # ---------- CI: package the jar the pipeline already built and tested ----------
 # Used with `target: ci`. No Maven and no dependency downloads in this build.
 FROM runtime AS ci
-COPY --chown=appuser:appuser target/app-exec.jar app.jar
+COPY --chown=appuser:appuser target/app.jar app.jar
 
 # ---------- Default: self-contained build (last stage = default target) ----------
 FROM runtime AS final
-COPY --from=builder --chown=appuser:appuser /app/target/app-exec.jar app.jar
+COPY --from=builder --chown=appuser:appuser /app/target/app.jar app.jar
