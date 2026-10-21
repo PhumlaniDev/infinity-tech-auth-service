@@ -19,7 +19,6 @@ concurrency:
 
 jobs:
   build:
-    needs: checkstyle
     permissions:
       actions: read
       contents: read
