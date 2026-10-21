@@ -70,7 +70,7 @@ jobs:
   #      image-tag: '${{ secrets.DOCKERHUB_USERNAME }}/infinity-auth-service:latest'
 
   notify:
-    needs: [ build, sast, sonar, docker, sca ]
+    needs: [ build, sast, docker, sca ]
     if: always()
     uses: PhumlaniDev/reusable-workflows/.github/workflows/discord-notify.yml@main
     with:
