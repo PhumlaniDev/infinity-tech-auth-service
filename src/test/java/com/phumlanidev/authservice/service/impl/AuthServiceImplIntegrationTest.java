@@ -66,7 +66,7 @@ public class AuthServiceImplIntegrationTest {
   @Container
   static PostgreSQLContainer postgres =
           new PostgreSQLContainer("postgres:16-alpine")
-          .withDatabaseName("auth_db_test")
+          .withDatabaseName("auth_db")
           .withUsername("postgres")
           .withPassword("postgres");
 

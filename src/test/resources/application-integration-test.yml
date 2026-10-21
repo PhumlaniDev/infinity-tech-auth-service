@@ -6,7 +6,7 @@ spring:
         enabled: false
 
   datasource:
-#    url: jdbc:tc:postgresql:16-alpine:///auth_test_db   # Testcontainers JDBC URL
+    url: jdbc:tc:postgresql:16-alpine:///auth_test_db   # Testcontainers JDBC URL
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
