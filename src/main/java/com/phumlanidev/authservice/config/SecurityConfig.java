@@ -29,8 +29,9 @@ public class SecurityConfig {
             authorize -> authorize
                 .requestMatchers("/api/v1/auth/**").permitAll()
 //                .requestMatchers("/api/v1/products/**").permitAll()
-                .requestMatchers("/actuator/**").hasRole(ADMIN)
+                .requestMatchers("/actuator/health/**", "/atcuator/info", "/actuator/prometheus").permitAll()
                     .requestMatchers("/api/v1/profile/**").authenticated()
+                    .requestMatchers("/actuator/**").hasRole(ADMIN)
                 .requestMatchers("/api/v1/admin/**").hasRole(ADMIN).anyRequest().authenticated()
             ).oauth2ResourceServer(
             oauth2 ->
