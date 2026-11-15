@@ -1,11 +1,10 @@
 package com.phumlanidev.authservice.config;
 
 
+import lombok.extern.slf4j.Slf4j;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -15,10 +14,9 @@ import org.springframework.context.annotation.Primary;
 /**
  * Comment: this is the placeholder for documentation.
  */
+@Slf4j
 @Configuration
 public class KeycloakConfig {
-
-  private static final Logger logger = LoggerFactory.getLogger(KeycloakConfig.class);
 
   @Value("${keycloak.auth-server-url}")
   private String keycloakServerUrl;
@@ -46,10 +44,10 @@ public class KeycloakConfig {
   @Bean
   @Primary
   public Keycloak keycloak() {
-    logger.info("Configuring Keycloak Admin Client...");
+    log.info("Configuring Keycloak Admin Client...");
     return KeycloakBuilder.builder()
             .serverUrl(keycloakServerUrl)
-            .realm("master")
+            .realm(keycloakRealm)
             .clientId(keycloakAdminClientId)
             .clientSecret(keycloakAdminClientSecret)
             .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
@@ -62,7 +60,7 @@ public class KeycloakConfig {
   @Bean
   @Qualifier("keycloakServiceClient")
   public Keycloak keycloakServiceClient() {
-    logger.info("Configuring Keycloak Service Client...");
+    log.info("Configuring Keycloak Service Client...");
     return KeycloakBuilder.builder()
       .serverUrl(keycloakServerUrl)
       .realm(keycloakRealm)
