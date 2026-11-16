@@ -30,6 +30,7 @@ import org.keycloak.representations.idm.ClientRepresentation;
 import org.keycloak.representations.idm.CredentialRepresentation;
 import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -63,6 +64,8 @@ public class AuthServiceImpl implements IAuthService {
   private final AuditLogServiceImpl auditLogService;
   private final KeycloakAdminHelper keycloakAdminHelper;
   private final RestTemplate restTemplate;
+  @Qualifier("loadBalancedRestTemplate")
+  private final RestTemplate loadBalancedRestTemplate;
   private final Keycloak keycloakAdminClient;
 
   @Value("${keycloak.auth-server-url}")
@@ -187,10 +190,10 @@ public class AuthServiceImpl implements IAuthService {
 
 
     try {
-      restTemplate.postForEntity(url, requestDtoHttpEntity, Void.class);
+      loadBalancedRestTemplate.postForEntity(url, requestDtoHttpEntity, Void.class);
       log.info("Password reset notification sent to {}", email);
     } catch (Exception e) {
-      log.error("Failed to send password reset notification to {}: {}", email, e.getMessage());
+      log.error("Failed to send password reset notification to {}", email, e);
     }
   }
 
@@ -209,10 +212,10 @@ public class AuthServiceImpl implements IAuthService {
       HttpEntity<EmailVerificationRequestDto> requestDtoHttpEntity = new HttpEntity<>(dto, headers);
 
     try {
-      restTemplate.postForEntity(url, requestDtoHttpEntity, Void.class);
+      loadBalancedRestTemplate.postForEntity(url, requestDtoHttpEntity, Void.class);
       log.info("Email verification notification sent to {}", email);
     } catch (Exception e) {
-      log.error("Failed to send email verification notification to {}: {}", email, e.getMessage());
+      log.error("Failed to send email verification notification to {}", email, e);
     }
   }
 
